@@ -423,8 +423,8 @@ export default function MapComponent({ isAdminMode }) {
           {/* HEADER SIDEBAR */}
           <div style={{ padding: '30px 30px 25px', backgroundColor: '#212529', color: '#fff', borderBottom: '4px solid #3498db', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h3 style={{margin: '0', fontSize: '24px', fontWeight: '800', letterSpacing: '1px'}}>{isAdminMode ? 'GIS Admin' : 'GIS Public'}</h3>
-              <p style={{margin: '6px 0 0 0', fontSize: '11px', color: '#adb5bd', textTransform: 'uppercase', letterSpacing: '1.5px'}}>Management System</p>
+              <h3 style={{margin: '0', fontSize: '24px', fontWeight: '800', letterSpacing: '1px'}}>{isAdminMode ? 'Peta Interaktif' : 'Peta Interaktif'}</h3>
+              <p style={{margin: '6px 0 0 0', fontSize: '11px', color: '#adb5bd', textTransform: 'uppercase', letterSpacing: '1.5px'}}>Peta Management System</p>
             </div>
             
             <button 
@@ -470,7 +470,7 @@ export default function MapComponent({ isAdminMode }) {
                 onClick={() => setAccordion(accordion === 'filter' ? '' : 'filter')}
                 style={{ width: '100%', padding: '22px 30px', textAlign: 'left', background: 'transparent', border: 'none', fontWeight: '700', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontSize: '14px', outline: 'none' }}
               >
-                <span style={{color: '#495057', letterSpacing: '0.5px'}}>Filter Layer Master</span>
+                <span style={{color: '#495057', letterSpacing: '0.5px'}}>Filter Layer</span>
                 <span style={{color: '#ced4da', fontSize: '18px'}}>{accordion === 'filter' ? '−' : '+'}</span>
               </button>
               {accordion === 'filter' && (
@@ -590,7 +590,7 @@ export default function MapComponent({ isAdminMode }) {
         isTableOpen ? (
           <div style={{ height: '35vh', background: '#f4f4f9', borderTop: '4px solid #343a40', padding: '15px 20px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <h3 style={{ margin: 0, color: '#333', fontSize: '16px' }}>Manajemen Database Rumpun ({displayedMarkers.length} Entri)</h3>
+              <h3 style={{ margin: 0, color: '#333', fontSize: '16px' }}>Tabel Data Manajemen ({displayedMarkers.length} Entri)</h3>
               <button 
                 onClick={() => setIsTableOpen(false)}
                 style={{ background: '#343a40', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
@@ -602,11 +602,11 @@ export default function MapComponent({ isAdminMode }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
                 <thead style={{ background: '#343a40', color: '#fff', position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr>
-                    <th style={{ padding: '12px 15px' }}>ID / No</th>
-                    <th style={{ padding: '12px 15px' }}>Tipe Rumpun</th>
-                    <th style={{ padding: '12px 15px' }}>Nama Objek</th>
-                    <th style={{ padding: '12px 15px' }}>Atribut Khusus (JSON)</th>
-                    <th style={{ padding: '12px 15px', textAlign: 'center' }}>Aksi CRUD</th>
+                    <th style={{ padding: '12px 15px' }}>No</th>
+                    <th style={{ padding: '12px 15px' }}>Rumpun</th>
+                    <th style={{ padding: '12px 15px' }}>Nama Lokasi</th>
+                    <th style={{ padding: '12px 15px' }}>Atribut Khusus</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'center' }}>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -665,7 +665,7 @@ export default function MapComponent({ isAdminMode }) {
             onClick={() => setIsTableOpen(true)}
             style={{ height: '6vh', background: '#343a40', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderTop: '2px solid #222' }}
           >
-             <span style={{ fontWeight: 'bold', fontSize: '13px', letterSpacing: '0.5px' }}>▲ Buka Tabel Manajemen Database ({displayedMarkers.length} Entri)</span>
+             <span style={{ fontWeight: 'bold', fontSize: '13px', letterSpacing: '0.5px' }}>▲ Buka Tabel Manajemen ({displayedMarkers.length} Entri)</span>
           </div>
         )
       ) : (
