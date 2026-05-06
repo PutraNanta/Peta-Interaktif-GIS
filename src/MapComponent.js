@@ -9,7 +9,8 @@ import {
 } from "react-leaflet";
 import { useState, useEffect } from "react";
 import L from "leaflet";
-import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power } from "lucide-react";
+import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power, Utensils, HeartPulse, GraduationCap, Home, Briefcase } from "lucide-react";
+import { renderToString } from "react-dom/server";
 
 // Fix untuk default marker Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -25,8 +26,22 @@ const baliBounds = [
 ];
 
 // Pembuat Ikon Nomor bergaya PIN Lokasi (Teardrop)
-const createNumberedIcon = (color, number) =>
-  new L.divIcon({
+// Function to get icon component based on rumpun
+const getRumpunIcon = (type) => {
+  if (!type) return <MapPin color="white" size={16} />;
+  const t = type.toLowerCase();
+  if (t.includes('restauran')) return <Utensils color="white" size={16} />;
+  if (t.includes('kesehatan') || t.includes('rs')) return <HeartPulse color="white" size={16} />;
+  if (t.includes('pendidikan') || t.includes('sekolah')) return <GraduationCap color="white" size={16} />;
+  if (t.includes('rumah')) return <Home color="white" size={16} />;
+  if (t.includes('kantor')) return <Briefcase color="white" size={16} />;
+  return <MapPin color="white" size={16} />;
+};
+
+// Pembuat Ikon Nomor bergaya PIN Lokasi (Teardrop)
+const createRumpunIcon = (color, type) => {
+  const iconHtml = renderToString(getRumpunIcon(type));
+  return new L.divIcon({
     className: "custom-numbered-pin",
     html: `
     <div style="
@@ -41,13 +56,16 @@ const createNumberedIcon = (color, number) =>
       border: 2px solid white; 
       box-shadow: -3px 3px 6px rgba(0,0,0,0.4);
     ">
-      <span style="transform: rotate(45deg); color: white; font-weight: 900; font-size: 14px;">${number}</span>
+      <div style="transform: rotate(45deg); display: flex; justify-content: center; align-items: center;">
+        ${iconHtml}
+      </div>
     </div>
   `,
     iconSize: [36, 36],
     iconAnchor: [18, 34],
     popupAnchor: [0, -34],
   });
+};
 
 // Pemetaan standard colors fallback
 const colorMap = {
@@ -1010,7 +1028,7 @@ export default function MapComponent({ isAdminMode }) {
 
         {/* TOGGLE PETA VS TABEL (FLOATING) */}
         {isAdminMode && authKey && (
-          <div style={{ position: 'absolute', top: '10px', right: '60px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <div style={{ position: 'absolute', top: '60px', right: '10px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
              <button onClick={() => setActiveView('map')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Map size={16} style={{marginRight: '6px'}}/> Peta</button>
              <button onClick={() => setActiveView('table')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Table size={16} style={{marginRight: '6px'}}/> Tabel</button>
           </div>
@@ -1082,7 +1100,7 @@ export default function MapComponent({ isAdminMode }) {
             const finalColor =
               cssColors[markerColor] || markerColor || "#3498db";
 
-            const nIcon = createNumberedIcon(finalColor, index + 1);
+            const nIcon = createRumpunIcon(finalColor, pos.tipe_objek);
 
             return (
               <Marker
