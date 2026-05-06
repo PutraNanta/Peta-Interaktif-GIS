@@ -9,7 +9,7 @@ import {
 } from "react-leaflet";
 import { useState, useEffect } from "react";
 import L from "leaflet";
-import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power, Utensils, HeartPulse, GraduationCap, Home, Briefcase, Search, Filter, LogIn, User, LogOut, CheckCircle } from "lucide-react";
+import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power, Utensils, HeartPulse, GraduationCap, Home, Briefcase } from "lucide-react";
 import { renderToString } from "react-dom/server";
 
 // Fix untuk default marker Leaflet
@@ -120,16 +120,8 @@ export default function MapComponent({ isAdminMode }) {
   const [masterTypes, setMasterTypes] = useState([]);
 
   // UI States
-  
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearchSearching, setIsSearchSearching] = useState(false);
-  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
-  const [isLoginDropdownOpen, setIsLoginDropdownOpen] = useState(false);
-  const [customFlyTo, setCustomFlyTo] = useState(null);
-
-  
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [accordion, setAccordion] = useState(isAdminMode ? "login" : "filter");
   const [activeMarkerId, setActiveMarkerId] = useState(null);
   const [activeView, setActiveView] = useState("map"); // "map" or "table"
 
@@ -588,51 +580,7 @@ export default function MapComponent({ isAdminMode }) {
     return null; // Jika ada rumpun lain tidak terdefinisi
   };
 
-  // Debounce search query
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  // OSM Nominatim API
-  useEffect(() => {
-    if (debouncedSearchQuery.trim().length < 3) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearchSearching(true);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(debouncedSearchQuery)}&viewbox=114.43,-8.06,115.71,-8.85&bounded=1&limit=5`;
-    fetch(url)
-      .then(res => res.json())
-      .then(data => { setSearchResults(data); setIsSearchSearching(false); })
-      .catch(err => { console.error(err); setIsSearchSearching(false); });
-  }, [debouncedSearchQuery]);
-
-  const handleExternalSearchClick = (res) => {
-    setCustomFlyTo({ lat: parseFloat(res.lat), lng: parseFloat(res.lon) });
-    setSearchResults([]);
-    setSearchQuery(res.display_name);
-  };
-
-  const displayedMarkers = markers.filter((m) => {
-    const typeMatch = filters[m.tipe_objek] !== false;
-    let searchMatch = true;
-    if (searchQuery.trim().length > 0) {
-       const q = searchQuery.toLowerCase();
-       const nameMatch = m.name?.toLowerCase().includes(q);
-       const typeQMatch = m.tipe_objek?.toLowerCase().includes(q);
-       let attrMatch = false;
-       if (m.atribut_tambahan) {
-          attrMatch = Object.values(m.atribut_tambahan).some(val => 
-             String(val).toLowerCase().includes(q)
-          );
-       }
-       searchMatch = nameMatch || typeQMatch || attrMatch;
-    }
-    return typeMatch && searchMatch;
-  });
+  const displayedMarkers = markers.filter((m) => filters[m.tipe_objek]);
 
   return (
     <div
@@ -761,102 +709,322 @@ export default function MapComponent({ isAdminMode }) {
         </div>
       )}
 
-            {/* ===== NAVBAR / HEADER ===== */}
-      <header style={{ height: "70px", backgroundColor: "#343a40", display: "flex", alignItems: "center", padding: "0 30px", justifyContent: "space-between", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", position: "relative", zIndex: 1100 }}>
-        {/* LOGO & TITLE */}
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <div style={{ background: "#fff", padding: "8px", borderRadius: "8px", display: "flex" }}>
-            <MapPin size={24} color="#e74c3c" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, color: "#fff", fontSize: "20px", letterSpacing: "1px", fontWeight: 800 }}>Peta Interaktif</h1>
-            <p style={{ margin: 0, color: "#d4e9d3", fontSize: "11px", letterSpacing: "1px", textTransform: "uppercase" }}>{isAdminMode ? "Admin Panel" : "Public View"}</p>
-          </div>
-        </div>
+      {/* ===== BAGIAN ATAS: PETA & SIDEBAR ===== */}
+      <div
+        style={{
+          flex: 1,
+          position: "relative",
+          minHeight: "60vh",
+          overflow: "hidden",
+        }}
+      >
+        {/* HAMBURGER BUTTON ELEGANT */}
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            style={{
+              position: "absolute",
+              top: "20px",
+              left: "50px",
+              zIndex: 1001,
+              backgroundColor: "#ffffff",
+              border: "1px solid #eaeaea",
+              padding: "12px 20px",
+              borderRadius: "30px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "700",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.1)",
+              transition: "all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)",
+              color: "#2c3e50",
+              letterSpacing: "0.5px",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Menu size={16} style={{marginRight: '6px'}}/> {isAdminMode ? "Akses Admin" : "Filter Peta"}
+          </button>
+        )}
 
-        {/* SMART SEARCH */}
-        <div style={{ position: "relative", flex: 1, maxWidth: "450px", margin: "0 30px" }}>
-          <div style={{ display: "flex", alignItems: "center", background: "#fff", borderRadius: "30px", padding: "8px 15px", border: "2px solid transparent", transition: "0.2s" }}>
-            <Search size={18} color="#95a5a6" style={{ marginRight: "10px" }} />
-            <input 
-              type="text"
-              placeholder="Cari lokasi lokal atau di Bali..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ border: "none", outline: "none", width: "100%", fontSize: "14px", background: "transparent" }}
-            />
-            {isSearchSearching && <span style={{ fontSize: "12px", color: "#aaa" }}>...</span>}
-            {searchQuery && <X size={16} color="#ccc" style={{ cursor: "pointer" }} onClick={() => setSearchQuery("")} />}
-          </div>
-          
-          {/* SEARCH DROPDOWN */}
-          {searchResults.length > 0 && (
-            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: "10px", background: "#fff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", overflow: "hidden", zIndex: 1200 }}>
-              {searchResults.map((res, i) => (
-                <div key={i} onClick={() => handleExternalSearchClick(res)} style={{ padding: "12px 15px", borderBottom: "1px solid #eee", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                  <MapPin size={16} color="#3498db" style={{ marginTop: "3px", flexShrink: 0 }} />
-                  <span style={{ fontSize: "13px", color: "#333", lineHeight: "1.4" }}>{res.display_name}</span>
-                </div>
-              ))}
+        {/* SIDEBAR MENGAMBANG (OFF-CANVAS) */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            height: "100%",
+            width: "360px",
+            backgroundColor: "#ffffff",
+            zIndex: 1005,
+            transform: isSidebarOpen ? "translateX(0)" : "translateX(-100%)",
+            transition: "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)",
+            boxShadow: "4px 0 24px rgba(0,0,0,0.15)",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* HEADER SIDEBAR */}
+          <div
+            style={{
+              padding: "30px 30px 25px",
+              backgroundColor: "#343a40",
+              color: "#fff",
+              borderBottom: "4px solid #495057",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+            }}
+          >
+            <div>
+              <h3
+                style={{
+                  margin: "0",
+                  fontSize: "24px",
+                  fontWeight: "800",
+                  letterSpacing: "1px",
+                }}
+              >
+                {isAdminMode ? "Peta Interaktif" : "Peta Interaktif"}
+              </h3>
+              <p
+                style={{
+                  margin: "6px 0 0 0",
+                  fontSize: "11px",
+                  color: "#d4e9d3",
+                  textTransform: "uppercase",
+                  letterSpacing: "1.5px",
+                }}
+              >
+                Peta Management System
+              </p>
             </div>
-          )}
-        </div>
 
-        {/* NAVBAR ACTIONS */}
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          {/* FILTER DROPDOWN */}
-          <div style={{ position: "relative" }}>
-            <button 
-              onClick={() => { setIsFilterDropdownOpen(!isFilterDropdownOpen); setIsLoginDropdownOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "10px 16px", borderRadius: "30px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#adb5bd",
+                cursor: "pointer",
+                outline: "none",
+              }}
+              title="Tutup Panel"
             >
-              <Filter size={16} /> Filter
+              <X size={24} />
             </button>
-            {isFilterDropdownOpen && (
-              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "10px", background: "#fff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", width: "250px", padding: "15px", zIndex: 1200 }}>
-                <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>Filter Layer</h4>
-                {masterTypes.map((t) => (
-                  <label key={t.nama_tipe} style={{ display: "flex", alignItems: "center", marginBottom: "12px", cursor: "pointer" }}>
-                    <input type="checkbox" checked={filters[t.nama_tipe] !== false} onChange={() => handleFilterChange(t.nama_tipe)} style={{ marginRight: "10px", transform: "scale(1.2)", accentColor: "#3498db" }} />
-                    <span style={{ fontSize: "14px", color: "#495057", textTransform: "capitalize", fontWeight: "600" }}>{t.nama_tipe.replace("_", " ")}</span>
-                  </label>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* LOGIN / ADMIN DROPDOWN */}
-          <div style={{ position: "relative" }}>
-            <button 
-              onClick={() => { setIsLoginDropdownOpen(!isLoginDropdownOpen); setIsFilterDropdownOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", background: authKey ? "#2ecc71" : "#3498db", border: "none", color: "#fff", padding: "10px 16px", borderRadius: "30px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
-            >
-              {authKey ? <User size={16} /> : <LogIn size={16} />} 
-              {authKey ? "Admin Aktif" : "Akses Admin"}
-            </button>
-            {isLoginDropdownOpen && (
-              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "10px", background: "#fff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", width: "280px", padding: "20px", zIndex: 1200 }}>
-                {!authKey ? (
-                  <form onSubmit={handleLogin}>
-                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>Login Admin</h4>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email..." style={{ width: "100%", padding: "12px", marginBottom: "10px", border: "1px solid #ddd", borderRadius: "6px", boxSizing: "border-box" }} />
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password..." style={{ width: "100%", padding: "12px", marginBottom: "15px", border: "1px solid #ddd", borderRadius: "6px", boxSizing: "border-box" }} />
-                    <button type="submit" style={{ width: "100%", padding: "12px", background: "#3498db", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>IZINKAN AKSES</button>
-                  </form>
-                ) : (
-                  <div>
-                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>Menu Admin</h4>
-                    <button onClick={handleLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px", background: "#e74c3c", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}><LogOut size={16} /> LOGOUT</button>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {/* ACCORDION 1: LOGIN (HANYA MUNCUL DI ADMIN MODE) */}
+            {isAdminMode && (
+              <div style={{ borderBottom: "1px solid #f1f3f5" }}>
+                <button
+                  onClick={() =>
+                    setAccordion(accordion === "login" ? "" : "login")
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "22px 30px",
+                    textAlign: "left",
+                    background: "transparent",
+                    border: "none",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "14px",
+                    outline: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: authKey ? "#2ecc71" : "#495057",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {authKey ? "Akses Admin Aktif" : "Login Admin"}
+                  </span>
+                  <span style={{ color: "#ced4da", display: "flex", alignItems: "center" }}>
+                    {accordion === "login" ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </span>
+                </button>
+                {accordion === "login" && (
+                  <div style={{ padding: "0 30px 25px 30px" }}>
+                    {!authKey ? (
+                      <form onSubmit={handleLogin}>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Email..."
+                          style={{
+                            width: "100%",
+                            padding: "14px",
+                            marginBottom: "12px",
+                            border: "1px solid #dee2e6",
+                            borderRadius: "8px",
+                            fontSize: "13px",
+                            backgroundColor: "#f8f9fa",
+                          }}
+                        />
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Password..."
+                          style={{
+                            width: "100%",
+                            padding: "14px",
+                            marginBottom: "16px",
+                            border: "1px solid #dee2e6",
+                            borderRadius: "8px",
+                            fontSize: "13px",
+                            backgroundColor: "#f8f9fa",
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          style={{
+                            width: "100%",
+                            padding: "14px",
+                            background: "#3498db",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "13px",
+                          }}
+                        >
+                          IZINKAN AKSES
+                        </button>
+                      </form>
+                    ) : (
+                      <div>
+                        <button
+                          onClick={handleLogout}
+                          style={{
+                            width: "100%",
+                            padding: "14px",
+                            background: "#e74c3c",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "13px",
+                          }}
+                        >
+                          LOGOUT (TUTUP)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
+
+            {/* ACCORDION 2: FILTER LAYER */}
+            <div style={{ borderBottom: "1px solid #f1f3f5" }}>
+              <button
+                onClick={() =>
+                  setAccordion(accordion === "filter" ? "" : "filter")
+                }
+                style={{
+                  width: "100%",
+                  padding: "22px 30px",
+                  textAlign: "left",
+                  background: "transparent",
+                  border: "none",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "14px",
+                  outline: "none",
+                }}
+              >
+                <span style={{ color: "#495057", letterSpacing: "0.5px" }}>
+                  Filter Layer
+                </span>
+                <span style={{ color: "#ced4da", display: "flex", alignItems: "center" }}>
+                  {accordion === "filter" ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </span>
+              </button>
+              {accordion === "filter" && (
+                <div style={{ padding: "5px 30px 25px 30px" }}>
+                  {masterTypes.map((t) => (
+                    <div key={t.nama_tipe} style={{ marginBottom: "15px" }}>
+                      <label
+                        style={{
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filters[t.nama_tipe] || false}
+                          onChange={() => handleFilterChange(t.nama_tipe)}
+                          style={{
+                            marginRight: "15px",
+                            transform: "scale(1.3)",
+                            accentColor: "#3498db",
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontWeight: "600",
+                            fontSize: "14px",
+                            color: "#495057",
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {t.nama_tipe.replace("_", " ")}
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Navigasi Link Antar Halaman */}
+            <div
+              style={{
+                padding: "30px",
+                textAlign: "center",
+                marginTop: "20px",
+              }}
+            >
+              {isAdminMode ? (
+                <a
+                  href="/"
+                  style={{
+                    color: "#3498db",
+                    fontSize: "13px",
+                    textDecoration: "none",
+                    fontWeight: "bold",
+                  }}
+                >
+                  ← Kembali ke Mode Publik
+                </a>
+              ) : (
+                <a
+                  href="/admin"
+                  style={{
+                    color: "#e67e22",
+                    fontSize: "13px",
+                    textDecoration: "none",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Buka Halaman Admin (CRUD) →
+                </a>
+              )}
+            </div>
           </div>
         </div>
-      </header>
-
-      {/* ===== LAYOUT BAWAH (PETA & OVERLAY) ===== */}
-      <div onClick={() => { setIsFilterDropdownOpen(false); setIsLoginDropdownOpen(false); }} style={{ flex: 1, position: "relative", height: "calc(100vh - 70px)", overflow: "hidden" }}>
 
         {/* TOGGLE PETA VS TABEL (FLOATING) */}
         {isAdminMode && authKey && (
@@ -875,8 +1043,8 @@ export default function MapComponent({ isAdminMode }) {
           maxBounds={baliBounds}
           style={{
             height: "100%",
-            width: "100%",
-            marginLeft: "0",
+            width: isSidebarOpen ? "calc(100% - 360px)" : "100%",
+            marginLeft: isSidebarOpen ? "360px" : "0",
             transition: "width 0.4s ease, margin-left 0.4s ease",
             zIndex: 1,
             cursor: isEditMode ? "crosshair" : "grab",
@@ -1073,8 +1241,8 @@ export default function MapComponent({ isAdminMode }) {
           style={{
             position: 'absolute',
             top: 0,
-            left: '0',
-            width: '100%',
+            left: isSidebarOpen ? '360px' : '0',
+            width: isSidebarOpen ? 'calc(100% - 360px)' : '100%',
             height: '100vh',
             background: '#f4f4f9',
             padding: '80px 40px 40px 40px',
