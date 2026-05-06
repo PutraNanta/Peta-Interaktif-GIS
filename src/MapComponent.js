@@ -622,14 +622,22 @@ export default function MapComponent({ isAdminMode }) {
     if (searchQuery.trim().length > 0) {
        const q = searchQuery.toLowerCase();
        const nameMatch = m.name?.toLowerCase().includes(q);
-       const typeQMatch = m.tipe_objek?.toLowerCase().includes(q);
+       const tObj = m.tipe_objek?.toLowerCase() || '';
+       const typeQMatch = tObj.includes(q);
+       
+       let synMatch = false;
+       if ((q === 'rs' || q === 'rumah sakit' || q === 'klinik' || q === 'puskesmas' || q === 'apotek') && tObj === 'kesehatan') synMatch = true;
+       if ((q === 'sd' || q === 'smp' || q === 'sma' || q === 'smk' || q === 'kampus' || q === 'sekolah' || q === 'universitas') && tObj === 'pendidikan') synMatch = true;
+       if ((q === 'makan' || q === 'warung' || q === 'cafe' || q === 'resto' || q === 'kopi') && tObj === 'restauran') synMatch = true;
+       if ((q === 'kost' || q === 'kos' || q === 'kontrakan' || q === 'villa' || q === 'hotel') && tObj === 'rumah') synMatch = true;
+
        let attrMatch = false;
        if (m.atribut_tambahan) {
           attrMatch = Object.values(m.atribut_tambahan).some(val => 
              String(val).toLowerCase().includes(q)
           );
        }
-       searchMatch = nameMatch || typeQMatch || attrMatch;
+       searchMatch = nameMatch || typeQMatch || synMatch || attrMatch;
     }
     return typeMatch && searchMatch;
   });
@@ -943,7 +951,7 @@ export default function MapComponent({ isAdminMode }) {
                   click: () => setActiveMarkerId(pos.id), // Saat marker diklik, set Active ID
                 }}
               >
-                <Popup>
+                <Popup onClose={() => setActiveMarkerId(null)}>
                   <div style={{ textAlign: "center", marginBottom: "8px" }}>
                     <b
                       style={{
