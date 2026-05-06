@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 import { useState, useEffect } from "react";
 import L from "leaflet";
+import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power } from "lucide-react";
 
 // Fix untuk default marker Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -600,8 +601,8 @@ export default function MapComponent({ isAdminMode }) {
               boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
             }}
           >
-            <h3 style={{ margin: "0 0 20px 0" }}>
-              {modalData.isEdit ? "✏️ Edit Data Objek" : "📍 Detail Objek Baru"}
+            <h3 style={{ margin: "0 0 20px 0", display: "flex", alignItems: "center" }}>
+              {modalData.isEdit ? <><Edit3 size={20} style={{marginRight: '8px'}}/> Edit Data Objek</> : <><MapPin size={20} style={{marginRight: '8px'}}/> Detail Objek Baru</>}
             </h3>
 
             <label style={{ fontSize: "12px", fontWeight: "bold" }}>
@@ -719,9 +720,11 @@ export default function MapComponent({ isAdminMode }) {
               transition: "all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)",
               color: "#2c3e50",
               letterSpacing: "0.5px",
+              display: "flex",
+              alignItems: "center",
             }}
           >
-            {isAdminMode ? "☰ Akses Admin" : "☰ Filter Peta"}
+            <Menu size={16} style={{marginRight: '6px'}}/> {isAdminMode ? "Akses Admin" : "Filter Peta"}
           </button>
         )}
 
@@ -784,13 +787,12 @@ export default function MapComponent({ isAdminMode }) {
                 background: "transparent",
                 border: "none",
                 color: "#adb5bd",
-                fontSize: "20px",
                 cursor: "pointer",
                 outline: "none",
               }}
               title="Tutup Panel"
             >
-              ✖
+              <X size={24} />
             </button>
           </div>
 
@@ -824,8 +826,8 @@ export default function MapComponent({ isAdminMode }) {
                   >
                     {authKey ? "Akses Admin Aktif" : "Login Admin"}
                   </span>
-                  <span style={{ color: "#ced4da", fontSize: "18px" }}>
-                    {accordion === "login" ? "−" : "+"}
+                  <span style={{ color: "#ced4da", display: "flex", alignItems: "center" }}>
+                    {accordion === "login" ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                   </span>
                 </button>
                 {accordion === "login" && (
@@ -927,8 +929,8 @@ export default function MapComponent({ isAdminMode }) {
                 <span style={{ color: "#495057", letterSpacing: "0.5px" }}>
                   Filter Layer
                 </span>
-                <span style={{ color: "#ced4da", fontSize: "18px" }}>
-                  {accordion === "filter" ? "−" : "+"}
+                <span style={{ color: "#ced4da", display: "flex", alignItems: "center" }}>
+                  {accordion === "filter" ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </span>
               </button>
               {accordion === "filter" && (
@@ -1008,9 +1010,9 @@ export default function MapComponent({ isAdminMode }) {
 
         {/* TOGGLE PETA VS TABEL (FLOATING) */}
         {isAdminMode && authKey && (
-          <div style={{ position: 'absolute', top: '20px', right: '50px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-             <button onClick={() => setActiveView('map')} style={{ padding: '8px 16px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>🗺️ Peta</button>
-             <button onClick={() => setActiveView('table')} style={{ padding: '8px 16px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>📇 Tabel</button>
+          <div style={{ position: 'absolute', top: '10px', right: '60px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+             <button onClick={() => setActiveView('map')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Map size={16} style={{marginRight: '6px'}}/> Peta</button>
+             <button onClick={() => setActiveView('table')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Table size={16} style={{marginRight: '6px'}}/> Tabel</button>
           </div>
         )}
 
@@ -1205,9 +1207,11 @@ export default function MapComponent({ isAdminMode }) {
                 borderRadius: "15px",
                 cursor: "pointer",
                 fontWeight: "bold",
+                display: "flex",
+                alignItems: "center"
               }}
             >
-              {isEditMode ? "Matikan" : "Nyalakan"}
+              <Power size={14} style={{marginRight:'6px'}}/> {isEditMode ? "Matikan" : "Nyalakan"}
             </button>
           </div>
         )}
@@ -1384,9 +1388,11 @@ export default function MapComponent({ isAdminMode }) {
                                 fontSize: "12px",
                                 fontWeight: "bold",
                                 marginRight: "5px",
+                                display: "inline-flex",
+                                alignItems: "center"
                               }}
                             >
-                              Edit
+                              <Edit3 size={14} style={{marginRight:'4px'}}/> Edit
                             </button>
                             <button
                               onClick={(e) => {
@@ -1402,9 +1408,11 @@ export default function MapComponent({ isAdminMode }) {
                                 cursor: "pointer",
                                 fontSize: "12px",
                                 fontWeight: "bold",
+                                display: "inline-flex",
+                                alignItems: "center"
                               }}
                             >
-                              Hapus
+                              <Trash2 size={14} style={{marginRight:'4px'}}/> Hapus
                             </button>
                           </>
                         ) : (
