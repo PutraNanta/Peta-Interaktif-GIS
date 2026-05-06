@@ -104,7 +104,7 @@ export default function MapComponent({ isAdminMode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [accordion, setAccordion] = useState(isAdminMode ? "login" : "filter");
   const [activeMarkerId, setActiveMarkerId] = useState(null);
-  const [isTableOpen, setIsTableOpen] = useState(true);
+  const [activeView, setActiveView] = useState("map"); // "map" or "table"
 
   // Modals & Admin States
   const [authKey, setAuthKey] = useState("");
@@ -746,9 +746,9 @@ export default function MapComponent({ isAdminMode }) {
           <div
             style={{
               padding: "30px 30px 25px",
-              backgroundColor: "#1b5e20",
+              backgroundColor: "#343a40",
               color: "#fff",
-              borderBottom: "4px solid #2e7d32",
+              borderBottom: "4px solid #495057",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
@@ -1006,6 +1006,14 @@ export default function MapComponent({ isAdminMode }) {
           </div>
         </div>
 
+        {/* TOGGLE PETA VS TABEL (FLOATING) */}
+        {isAdminMode && authKey && (
+          <div style={{ position: 'absolute', top: '20px', right: '50px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+             <button onClick={() => setActiveView('map')} style={{ padding: '8px 16px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>🗺️ Peta</button>
+             <button onClick={() => setActiveView('table')} style={{ padding: '8px 16px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}>📇 Tabel</button>
+          </div>
+        )}
+
         {/* PETA CONTAINER */}
         <MapContainer
           center={[-8.65, 115.2167]}
@@ -1205,256 +1213,217 @@ export default function MapComponent({ isAdminMode }) {
         )}
       </div>
 
-      {/* ===== BAGIAN BAWAH: DATA TABEL ADMIN ===== */}
-      {isAdminMode ? (
-        isTableOpen ? (
+      {/* ===== TABEL ADMIN (FULL SCREEN TOGGLE OVERLAY) ===== */}
+      {isAdminMode && authKey && activeView === 'table' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: isSidebarOpen ? '360px' : '0',
+            width: isSidebarOpen ? 'calc(100% - 360px)' : '100%',
+            height: '100vh',
+            background: '#f4f4f9',
+            padding: '80px 40px 40px 40px',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 999,
+            boxSizing: 'border-box',
+            transition: "width 0.4s ease, left 0.4s ease",
+          }}
+        >
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ margin: 0, color: "#333", fontSize: "24px" }}>
+              Database Rumpun ({displayedMarkers.length} Entri)
+            </h2>
+            <p style={{ color: "#777", margin: "5px 0 0 0" }}>Manajemen data spasial yang tersimpan di sistem.</p>
+          </div>
+
           <div
             style={{
-              height: "35vh",
-              background: "#f4f4f9",
-              borderTop: "4px solid #2e7d32",
-              padding: "15px 20px",
-              display: "flex",
-              flexDirection: "column",
+              flex: 1,
+              overflowY: "auto",
+              background: "#fff",
+              borderRadius: "12px",
+              boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
             }}
           >
-            <div
+            <table
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "10px",
+                width: "100%",
+                borderCollapse: "collapse",
+                textAlign: "left",
+                fontSize: "14px",
               }}
             >
-              <h3 style={{ margin: 0, color: "#333", fontSize: "16px" }}>
-                Tabel Data Manajemen ({displayedMarkers.length} Entri)
-              </h3>
-              <button
-                onClick={() => setIsTableOpen(false)}
+              <thead
                 style={{
-                  background: "#2e7d32",
+                  background: "#4a5568",
                   color: "#fff",
-                  border: "none",
-                  padding: "5px 12px",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  fontWeight: "bold",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 10,
                 }}
               >
-                ▼ Sembunyikan Tabel
-              </button>
-            </div>
-
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                background: "#fff",
-                borderRadius: "8px",
-                boxShadow: "0 3px 6px rgba(0,0,0,0.1)",
-              }}
-            >
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  textAlign: "left",
-                  fontSize: "14px",
-                }}
-              >
-                <thead
-                  style={{
-                    background: "#2e7d32",
-                    color: "#fff",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 10,
-                  }}
-                >
+                <tr>
+                  <th style={{ padding: "12px 15px" }}>No</th>
+                  <th style={{ padding: "12px 15px" }}>Rumpun</th>
+                  <th style={{ padding: "12px 15px" }}>Nama Lokasi</th>
+                  <th style={{ padding: "12px 15px" }}>Atribut Khusus</th>
+                  <th style={{ padding: "12px 15px", textAlign: "center" }}>
+                    Aksi
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedMarkers.length === 0 ? (
                   <tr>
-                    <th style={{ padding: "12px 15px" }}>No</th>
-                    <th style={{ padding: "12px 15px" }}>Rumpun</th>
-                    <th style={{ padding: "12px 15px" }}>Nama Lokasi</th>
-                    <th style={{ padding: "12px 15px" }}>Atribut Khusus</th>
-                    <th style={{ padding: "12px 15px", textAlign: "center" }}>
-                      Aksi
-                    </th>
+                    <td
+                      colSpan="5"
+                      style={{
+                        padding: "30px",
+                        textAlign: "center",
+                        color: "#888",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Belum ada data tersedia.
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {displayedMarkers.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        style={{
-                          padding: "30px",
-                          textAlign: "center",
-                          color: "#888",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        Belum ada data tersedia.
+                ) : (
+                  displayedMarkers.map((pos, index) => (
+                    <tr
+                      key={pos.id}
+                      onClick={() => setActiveMarkerId(pos.id)}
+                      style={{
+                        borderBottom: "1px solid #eee",
+                        cursor: "pointer",
+                        background:
+                          activeMarkerId === pos.id
+                            ? "#e3f2fd"
+                            : "transparent",
+                        transition: "background 0.3s",
+                      }}
+                    >
+                      <td style={{ padding: "10px 15px" }}>
+                        <span
+                          style={{
+                            background: "#4a5568",
+                            color: "#fff",
+                            padding: "2px 6px",
+                            borderRadius: "10px",
+                            fontSize: "11px",
+                          }}
+                        >
+                          {index + 1}
+                        </span>
                       </td>
-                    </tr>
-                  ) : (
-                    displayedMarkers.map((pos, index) => (
-                      <tr
-                        key={pos.id}
-                        onClick={() => setActiveMarkerId(pos.id)}
+                      <td
                         style={{
-                          borderBottom: "1px solid #eee",
-                          cursor: "pointer",
-                          background:
-                            activeMarkerId === pos.id
-                              ? "#e3f2fd"
-                              : "transparent",
-                          transition: "background 0.3s",
+                          padding: "10px 15px",
+                          textTransform: "capitalize",
+                          fontWeight: "bold",
                         }}
                       >
-                        <td style={{ padding: "10px 15px" }}>
-                          <span
-                            style={{
-                              background: "#2e7d32",
-                              color: "#fff",
-                              padding: "2px 6px",
-                              borderRadius: "10px",
-                              fontSize: "11px",
-                            }}
-                          >
-                            {index + 1}
-                          </span>
-                        </td>
-                        <td
+                        <span
                           style={{
-                            padding: "10px 15px",
-                            textTransform: "capitalize",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          <span
-                            style={{
-                              background: "#e8f5e9",
-                              color: "#1b5e20",
-                              padding: "2px 6px",
-                              borderRadius: "4px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            {pos.tipe_objek}
-                          </span>
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 15px",
-                            fontWeight: "bold",
-                            color: "#222",
-                          }}
-                        >
-                          {pos.name}
-                        </td>
-                        <td
-                          style={{
-                            padding: "10px 15px",
-                            color: "#555",
+                            background: "#e2e8f0",
+                            color: "#2d3748",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
                             fontSize: "12px",
                           }}
                         >
-                          {/* Stringify simple */}
-                          <code
-                            style={{
-                              background: "#f8f9fa",
-                              padding: "3px 6px",
-                              borderRadius: "4px",
-                              display: "block",
-                              maxWidth: "250px",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {JSON.stringify(pos.atribut_tambahan || {})}
-                          </code>
-                        </td>
-                        <td
-                          style={{ padding: "10px 15px", textAlign: "center" }}
+                          {pos.tipe_objek}
+                        </span>
+                      </td>
+                      <td
+                        style={{
+                          padding: "10px 15px",
+                          fontWeight: "bold",
+                          color: "#222",
+                        }}
+                      >
+                        {pos.name}
+                      </td>
+                      <td
+                        style={{
+                          padding: "10px 15px",
+                          color: "#555",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <code
+                          style={{
+                            background: "#f8f9fa",
+                            padding: "3px 6px",
+                            borderRadius: "4px",
+                            display: "block",
+                            maxWidth: "250px",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
                         >
-                          {authKey ? (
-                            <>
-                              <button
-                                onClick={(e) => handleEditClick(pos, e)}
-                                style={{
-                                  padding: "5px 10px",
-                                  background: "#f39c12",
-                                  color: "#fff",
-                                  border: "none",
-                                  borderRadius: "4px",
-                                  cursor: "pointer",
-                                  fontSize: "12px",
-                                  fontWeight: "bold",
-                                  marginRight: "5px",
-                                }}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeletePoint(pos.id);
-                                }}
-                                style={{
-                                  padding: "5px 10px",
-                                  background: "#dc3545",
-                                  color: "#fff",
-                                  border: "none",
-                                  borderRadius: "4px",
-                                  cursor: "pointer",
-                                  fontSize: "12px",
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                Hapus
-                              </button>
-                            </>
-                          ) : (
-                            <span style={{ color: "#aaa", fontSize: "11px" }}>
-                              Protected
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                          {JSON.stringify(pos.atribut_tambahan || {})}
+                        </code>
+                      </td>
+                      <td
+                        style={{ padding: "10px 15px", textAlign: "center" }}
+                      >
+                        {authKey ? (
+                          <>
+                            <button
+                              onClick={(e) => handleEditClick(pos, e)}
+                              style={{
+                                padding: "5px 10px",
+                                background: "#f39c12",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                                marginRight: "5px",
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePoint(pos.id);
+                              }}
+                              style={{
+                                padding: "5px 10px",
+                                background: "#dc3545",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              Hapus
+                            </button>
+                          </>
+                        ) : (
+                          <span style={{ color: "#aaa", fontSize: "11px" }}>
+                            Protected
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div
-            onClick={() => setIsTableOpen(true)}
-            style={{
-              height: "6vh",
-              background: "#2e7d32",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              borderTop: "2px solid #1b5e20",
-            }}
-          >
-            <span
-              style={{
-                fontWeight: "bold",
-                fontSize: "13px",
-                letterSpacing: "0.5px",
-              }}
-            >
-              ▲ Buka Tabel Manajemen ({displayedMarkers.length} Entri)
-            </span>
-          </div>
-        )
-      ) : (
+        </div>
+      )}
+
+      {/* Jika belum login (Bukan Admin) tampilkan navigasi ini di bawah */}
+      {!isAdminMode && (
         <div
           style={{
             height: "7vh",
@@ -1464,6 +1433,7 @@ export default function MapComponent({ isAdminMode }) {
             alignItems: "center",
             justifyContent: "center",
             fontSize: "13px",
+            zIndex: 1000
           }}
         >
           Buka{" "}
