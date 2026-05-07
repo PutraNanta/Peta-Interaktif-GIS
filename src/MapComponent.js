@@ -115,7 +115,7 @@ function MapFocus({ activeMarkerId, markers }) {
 }
 
 // ===== KOMPONEN UTAMA =====
-export default function MapComponent({ isAdminMode }) {
+export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [markers, setMarkers] = useState([]);
   const [masterTypes, setMasterTypes] = useState([]);
 
@@ -645,13 +645,16 @@ export default function MapComponent({ isAdminMode }) {
   return (
     <div
       style={{
-        display: "flex",
-        flexDirection: "column",
         height: "100vh",
         fontFamily: "sans-serif",
         position: "relative",
       }}
     >
+      <style>{`
+        .leaflet-top {
+          top: 90px !important;
+        }
+      `}</style>
       {/* MODAL INPUT PETA (Tambah/Edit) */}
       {modalData && (
         <div
@@ -770,21 +773,21 @@ export default function MapComponent({ isAdminMode }) {
       )}
 
             {/* ===== NAVBAR / HEADER ===== */}
-      <header style={{ height: "70px", backgroundColor: "#343a40", display: "flex", alignItems: "center", padding: "0 30px", justifyContent: "space-between", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", position: "relative", zIndex: 1100 }}>
+      <header style={{ height: "70px", backgroundColor: "#ffffff", borderRadius: "15px", position: "absolute", top: "15px", left: "15px", right: "15px", display: "flex", alignItems: "center", padding: "0 30px", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", zIndex: 1100 }}>
         {/* LOGO & TITLE */}
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <div style={{ background: "#fff", padding: "8px", borderRadius: "8px", display: "flex" }}>
+          <div style={{ background: "#f4f6f9", padding: "8px", borderRadius: "8px", display: "flex", border: "1px solid #eaeaea" }}>
             <MapPin size={24} color="#e74c3c" />
           </div>
           <div>
-            <h1 style={{ margin: 0, color: "#fff", fontSize: "20px", letterSpacing: "1px", fontWeight: 800 }}>Peta Interaktif</h1>
-            <p style={{ margin: 0, color: "#d4e9d3", fontSize: "11px", letterSpacing: "1px", textTransform: "uppercase" }}>{isAdminMode ? "Admin Panel" : "Public View"}</p>
+            <h1 style={{ margin: 0, color: "#2c3e50", fontSize: "20px", letterSpacing: "1px", fontWeight: 800 }}>Peta Interaktif</h1>
+            <p style={{ margin: 0, color: "#7f8c8d", fontSize: "11px", letterSpacing: "1px", textTransform: "uppercase" }}>{authKey ? "Admin Panel" : "Public View"}</p>
           </div>
         </div>
 
         {/* SMART SEARCH */}
         <div style={{ position: "relative", flex: 1, maxWidth: "450px", margin: "0 30px" }}>
-          <div style={{ display: "flex", alignItems: "center", background: "#fff", borderRadius: "30px", padding: "8px 15px", border: "2px solid transparent", transition: "0.2s" }}>
+          <div style={{ display: "flex", alignItems: "center", background: "#f4f6f9", borderRadius: "30px", padding: "8px 15px", border: "1px solid #eaeaea", transition: "0.2s" }}>
             <Search size={18} color="#95a5a6" style={{ marginRight: "10px" }} />
             <input 
               type="text"
@@ -816,7 +819,7 @@ export default function MapComponent({ isAdminMode }) {
           <div style={{ position: "relative" }}>
             <button 
               onClick={() => { setIsFilterDropdownOpen(!isFilterDropdownOpen); setIsLoginDropdownOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "10px 16px", borderRadius: "30px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
+              style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f4f6f9", border: "1px solid #eaeaea", color: "#2c3e50", padding: "10px 16px", borderRadius: "30px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
             >
               <Filter size={16} /> Filter
             </button>
@@ -864,11 +867,11 @@ export default function MapComponent({ isAdminMode }) {
       </header>
 
       {/* ===== LAYOUT BAWAH (PETA & OVERLAY) ===== */}
-      <div onClick={() => { setIsFilterDropdownOpen(false); setIsLoginDropdownOpen(false); }} style={{ flex: 1, position: "relative", height: "calc(100vh - 70px)", overflow: "hidden" }}>
+      <div onClick={() => { setIsFilterDropdownOpen(false); setIsLoginDropdownOpen(false); }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }}>
 
         {/* TOGGLE PETA VS TABEL (FLOATING) */}
-        {isAdminMode && authKey && (
-          <div style={{ position: 'absolute', top: '60px', right: '10px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+        {authKey && (
+          <div style={{ position: 'absolute', top: '100px', right: '10px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
              <button onClick={() => setActiveView('map')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Map size={16} style={{marginRight: '6px'}}/> Peta</button>
              <button onClick={() => setActiveView('table')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Table size={16} style={{marginRight: '6px'}}/> Tabel</button>
           </div>
@@ -910,7 +913,7 @@ export default function MapComponent({ isAdminMode }) {
             </LayersControl.BaseLayer>
           </LayersControl>
 
-          {isAdminMode && authKey && (
+          {authKey && (
             <LocationMarker
               isEditMode={isEditMode}
               authKey={authKey}
@@ -1029,7 +1032,7 @@ export default function MapComponent({ isAdminMode }) {
         </MapContainer>
 
         {/* TOGGLE EDIT MODE MELAYANG (HANYA ADMIN) */}
-        {isAdminMode && authKey && (
+        {authKey && (
           <div
             style={{
               position: "absolute",
@@ -1076,7 +1079,7 @@ export default function MapComponent({ isAdminMode }) {
       </div>
 
       {/* ===== TABEL ADMIN (FULL SCREEN TOGGLE OVERLAY) ===== */}
-      {isAdminMode && authKey && activeView === 'table' && (
+      {authKey && activeView === 'table' && (
         <div
           style={{
             position: 'absolute',
@@ -1289,7 +1292,7 @@ export default function MapComponent({ isAdminMode }) {
       )}
 
       {/* Jika belum login (Bukan Admin) tampilkan navigasi ini di bawah */}
-      {!isAdminMode && (
+      {!authKey && (
         <div
           style={{
             height: "7vh",
