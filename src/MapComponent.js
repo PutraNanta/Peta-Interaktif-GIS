@@ -4,12 +4,11 @@ import {
   Marker,
   Popup,
   useMapEvents,
-  LayersControl,
   useMap,
 } from "react-leaflet";
 import { useState, useEffect } from "react";
 import L from "leaflet";
-import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power, Utensils, HeartPulse, GraduationCap, Home, Briefcase, Search, Filter, LogIn, User, LogOut, CheckCircle } from "lucide-react";
+import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power, Utensils, HeartPulse, GraduationCap, Home, Briefcase, Search, Filter, LogIn, User, LogOut, CheckCircle, Layers } from "lucide-react";
 import { renderToString } from "react-dom/server";
 
 // Fix untuk default marker Leaflet
@@ -132,6 +131,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   
   const [activeMarkerId, setActiveMarkerId] = useState(null);
   const [activeView, setActiveView] = useState("map"); // "map" or "table"
+  const [tileLayer, setTileLayer] = useState("street"); // "street" or "satellite"
+  const [isTileDropdownOpen, setIsTileDropdownOpen] = useState(false);
 
   // Modals & Admin States
   const [authKey, setAuthKey] = useState("");
@@ -869,13 +870,39 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       {/* ===== LAYOUT BAWAH (PETA & OVERLAY) ===== */}
       <div onClick={() => { setIsFilterDropdownOpen(false); setIsLoginDropdownOpen(false); }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }}>
 
-        {/* TOGGLE PETA VS TABEL (FLOATING) */}
-        {authKey && (
-          <div style={{ position: 'absolute', top: '100px', right: '10px', zIndex: 1000, display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-             <button onClick={() => setActiveView('map')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Map size={16} style={{marginRight: '6px'}}/> Peta</button>
-             <button onClick={() => setActiveView('table')} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}><Table size={16} style={{marginRight: '6px'}}/> Tabel</button>
+        {/* KONTROL ATAS KANAN: Toggle Tile + Peta/Tabel */}
+        <div style={{ position: 'absolute', top: '100px', right: '10px', zIndex: 1000, display: 'flex', gap: '8px', alignItems: 'center' }}>
+
+          {/* CUSTOM TILE LAYER DROPDOWN */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsTileDropdownOpen(p => !p); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fff', border: '1px solid #dde', color: '#343a40', padding: '8px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', fontSize: '13px' }}
+            >
+              <Layers size={15} />
+              {tileLayer === 'street' ? 'Peta Jalan' : 'Satelit'}
+              <ChevronDown size={13} style={{ marginLeft: '2px' }} />
+            </button>
+            {isTileDropdownOpen && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: '#fff', borderRadius: '8px', boxShadow: '0 8px 20px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: '130px', zIndex: 1500 }}>
+                <div onClick={() => { setTileLayer('street'); setIsTileDropdownOpen(false); }} style={{ padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: tileLayer === 'street' ? '#f0f4ff' : '#fff', fontWeight: tileLayer === 'street' ? 'bold' : 'normal', color: '#343a40', fontSize: '13px' }}>
+                  🗺️ Peta Jalan
+                </div>
+                <div onClick={() => { setTileLayer('satellite'); setIsTileDropdownOpen(false); }} style={{ padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: tileLayer === 'satellite' ? '#f0f4ff' : '#fff', fontWeight: tileLayer === 'satellite' ? 'bold' : 'normal', color: '#343a40', fontSize: '13px' }}>
+                  🛰️ Satelit
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* TOGGLE PETA VS TABEL (hanya jika admin) */}
+          {authKey && (
+            <div style={{ display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+              <button onClick={() => setActiveView('map')} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s', fontSize: '13px' }}><Map size={15} style={{marginRight: '5px'}}/> Peta</button>
+              <button onClick={() => setActiveView('table')} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s', fontSize: '13px' }}><Table size={15} style={{marginRight: '5px'}}/> Tabel</button>
+            </div>
+          )}
+        </div>
 
         {/* PETA CONTAINER */}
         <MapContainer
@@ -898,20 +925,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             markers={displayedMarkers}
           />
 
-          <LayersControl position="topright">
-            <LayersControl.BaseLayer checked name="Peta Jalan">
-              <TileLayer
-                attribution="© OSM"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-            </LayersControl.BaseLayer>
-            <LayersControl.BaseLayer name="Satelit">
-              <TileLayer
-                attribution="© Esri"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-            </LayersControl.BaseLayer>
-          </LayersControl>
+          {/* TILE LAYER berdasarkan state */}
+          {tileLayer === 'street' ? (
+            <TileLayer attribution="© OSM" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          ) : (
+            <TileLayer attribution="© Esri" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+          )}
 
           {authKey && (
             <LocationMarker
