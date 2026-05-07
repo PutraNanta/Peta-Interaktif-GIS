@@ -3,16 +3,21 @@ const router = express.Router();
 
 const authController = require('../controllers/authController');
 const pointController = require('../controllers/pointController');
-const masterController = require('../controllers/masterController');
+const kategoriController = require('../controllers/kategoriController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// === Public Endpoints ===
+// === AUTH (Public) ===
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-router.get('/points', pointController.getAllPoints);
-router.get('/tipe', masterController.getAllMasterTipes);
 
-// === Private Endpoints (Wajib Login) ===
+// === KATEGORI (Public) ===
+router.get('/kategori', kategoriController.getAllKategori);
+
+// === EXPLORE (Public – semua marker) ===
+router.get('/points/explore', pointController.explorePoints);
+
+// === POINTS (Private – perlu token) ===
+router.get('/points', authMiddleware, pointController.getAllPoints);
 router.post('/points', authMiddleware, pointController.createPoint);
 router.put('/points/:id', authMiddleware, pointController.updatePoint);
 router.delete('/points/:id', authMiddleware, pointController.deletePoint);
