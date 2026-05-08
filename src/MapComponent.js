@@ -5,10 +5,32 @@ import {
   Popup,
   useMapEvents,
   useMap,
+  Polyline,
 } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import { useState, useEffect } from "react";
 import L from "leaflet";
-import { Menu, X, ChevronUp, ChevronDown, Map, Table, Edit3, MapPin, Trash2, Power, Utensils, HeartPulse, GraduationCap, Home, Briefcase, Search, Filter, LogIn, User, LogOut, CheckCircle, Layers } from "lucide-react";
+import {
+  X,
+  ChevronDown,
+  Edit3,
+  MapPin,
+  Power,
+  HeartPulse,
+  Search,
+  Filter,
+  LogIn,
+  User,
+  LogOut,
+  Layers,
+  Stethoscope,
+  Syringe,
+  Hospital,
+  Pill,
+  UserPlus,
+  FlaskConical,
+  Compass,
+} from "lucide-react";
 import { renderToString } from "react-dom/server";
 
 // Fix untuk default marker Leaflet
@@ -24,58 +46,64 @@ const baliBounds = [
   [-8.0, 115.8],
 ];
 
-// Pembuat Ikon Nomor bergaya PIN Lokasi (Teardrop)
-// Function to get icon component based on rumpun
-const getRumpunIcon = (type) => {
-  if (!type) return <MapPin color="white" size={16} />;
-  const t = type.toLowerCase();
-  if (t.includes('restauran')) return <Utensils color="white" size={16} />;
-  if (t.includes('kesehatan') || t.includes('rs')) return <HeartPulse color="white" size={16} />;
-  if (t.includes('pendidikan') || t.includes('sekolah')) return <GraduationCap color="white" size={16} />;
-  if (t.includes('rumah')) return <Home color="white" size={16} />;
-  if (t.includes('kantor')) return <Briefcase color="white" size={16} />;
-  return <MapPin color="white" size={16} />;
+// Warna kategori kesehatan
+const colorMap = {
+  Apotek: "#00b894",
+  Klinik: "#0984e3",
+  "Rumah Sakit": "#d63031",
+  Puskesmas: "#00cec9",
+  "Praktek Dokter": "#6c5ce7",
+  Laboratorium: "#fdcb6e",
 };
 
-// Pembuat Ikon Nomor bergaya PIN Lokasi (Teardrop)
-const createRumpunIcon = (color, type) => {
-  const iconHtml = renderToString(getRumpunIcon(type));
+// Icon per kategori
+const getCategoryIcon = (kategori) => {
+  const t = (kategori || "").toLowerCase();
+  if (t.includes("apotek")) return <Pill color="white" size={16} />;
+  if (t.includes("klinik")) return <Stethoscope color="white" size={16} />;
+  if (t.includes("rumah sakit")) return <Hospital color="white" size={16} />;
+  if (t.includes("puskesmas")) return <Syringe color="white" size={16} />;
+  if (t.includes("praktek dokter")) return <UserPlus color="white" size={16} />;
+  if (t.includes("laboratorium"))
+    return <FlaskConical color="white" size={16} />;
+  return <HeartPulse color="white" size={16} />;
+};
+
+// Buat icon marker dengan highlight
+const createMarkerIcon = (color, kategori, isActive = false) => {
+  const icon = getCategoryIcon(kategori);
+  const iconHtml = renderToString(icon);
+  const borderStyle = isActive
+    ? "border: 3px solid #FFD700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);"
+    : "border: 2px solid white; box-shadow: -3px 3px 6px rgba(0,0,0,0.4);";
+
   return new L.divIcon({
-    className: "custom-numbered-pin",
+    className: "custom-marker",
     html: `
-    <div style="
-      background-color: ${color};
-      width: 32px; 
-      height: 32px; 
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      border: 2px solid white; 
-      box-shadow: -3px 3px 6px rgba(0,0,0,0.4);
-    ">
-      <div style="transform: rotate(45deg); display: flex; justify-content: center; align-items: center;">
-        ${iconHtml}
+      <div style="
+        background-color: ${color};
+        width: 32px; 
+        height: 32px; 
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        ${borderStyle}
+        transition: all 0.3s;
+      ">
+        <div style="transform: rotate(45deg); display: flex; justify-content: center; align-items: center;">
+          ${iconHtml}
+        </div>
       </div>
-    </div>
-  `,
+    `,
     iconSize: [36, 36],
     iconAnchor: [18, 34],
     popupAnchor: [0, -34],
   });
 };
 
-// Pemetaan standard colors fallback
-const colorMap = {
-  rumah: "#3498db",
-  kantor: "#95a5a6",
-  kesehatan: "#e74c3c",
-  pendidikan: "#2ecc71",
-  restauran: "#e67e22",
-};
-
-// Komponen penangkap klik peta
+// Marker click handler
 function LocationMarker({
   isEditMode,
   authKey,
@@ -85,7 +113,7 @@ function LocationMarker({
   useMapEvents({
     click(e) {
       if (clearActiveMarker) clearActiveMarker();
-      if (!isEditMode) return; // Jika mode edit mati, jangan lakukan apapun
+      if (!isEditMode) return;
       if (!authKey) {
         alert("🔒 AKSES DITOLAK: Anda harus Login untuk menambah poin.");
         return;
@@ -96,7 +124,7 @@ function LocationMarker({
   return null;
 }
 
-// Hook untuk FlyTo (Navigasi 2-Arah)
+// Auto fly to active marker
 function MapFocus({ activeMarkerId, markers }) {
   const map = useMap();
   useEffect(() => {
@@ -113,108 +141,352 @@ function MapFocus({ activeMarkerId, markers }) {
   return null;
 }
 
-// ===== KOMPONEN UTAMA =====
+// Get user location
+function UserLocationMarker() {
+  const [userLocation, setUserLocation] = useState(null);
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation([latitude, longitude]);
+      });
+    }
+  }, []);
+
+  if (!userLocation) return null;
+
+  return (
+    <Marker
+      position={userLocation}
+      icon={
+        new L.divIcon({
+          className: "user-marker",
+          html: `
+            <div style="
+              background-color: #2196F3;
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              border: 3px solid white;
+              box-shadow: 0 0 10px rgba(33, 150, 243, 0.7);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">
+              <div style="
+                background-color: white;
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+              "></div>
+            </div>
+          `,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        })
+      }
+    >
+      <Popup>
+        <div style={{ textAlign: "center" }}>
+          <b>📍 Lokasi Anda Saat Ini</b>
+          <br />
+          <span style={{ fontSize: "12px", color: "#666" }}>
+            Lat: {userLocation[0].toFixed(4)}, Lng: {userLocation[1].toFixed(4)}
+          </span>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+// ===== MAIN COMPONENT =====
 export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [markers, setMarkers] = useState([]);
-  const [masterTypes, setMasterTypes] = useState([]);
+  const [kategoriKesehatan] = useState([
+    "Apotek",
+    "Klinik",
+    "Rumah Sakit",
+    "Puskesmas",
+    "Praktek Dokter",
+    "Laboratorium",
+  ]);
 
   // UI States
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchSearching, setIsSearchSearching] = useState(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isLoginDropdownOpen, setIsLoginDropdownOpen] = useState(false);
-  const [customFlyTo, setCustomFlyTo] = useState(null);
-
-  
   const [activeMarkerId, setActiveMarkerId] = useState(null);
-  const [activeView, setActiveView] = useState("map"); // "map" or "table"
-  const [tileLayer, setTileLayer] = useState("street"); // "street" or "satellite"
+  const [tileLayer, setTileLayer] = useState("street");
   const [isTileDropdownOpen, setIsTileDropdownOpen] = useState(false);
+  const [showExplore, setShowExplore] = useState(false);
+  const [routeTarget, setRouteTarget] = useState(null);
+  const [mapInstance, setMapInstance] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
 
-  // Modals & Admin States
+  // Auth & Edit States
   const [authKey, setAuthKey] = useState("");
+  const [userRole, setUserRole] = useState(
+    localStorage.getItem("userRole") || null,
+  );
   const [email, setEmail] = useState("admin@test.com");
   const [password, setPassword] = useState("");
-  const [isEditMode, setIsEditMode] = useState(false); // Toggle Tambah Data
-  const [modalData, setModalData] = useState(null); // Data titik baru sebelum disave
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [modalData, setModalData] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(
+    localStorage.getItem("userId") || null,
+  );
+  const [kategoriOptions, setKategoriOptions] = useState([]);
+  const [exploreMarkers, setExploreMarkers] = useState([]);
 
   // Form States
-  const [selectedType, setSelectedType] = useState("rumah");
+  const [selectedKategori, setSelectedKategori] = useState("Apotek");
   const [customName, setCustomName] = useState("");
-  const [dynamicAttrs, setDynamicAttrs] = useState({}); // Polimorfik field
-  const [filters, setFilters] = useState({});
+  const [dynamicAttrs, setDynamicAttrs] = useState({});
+  const [filters, setFilters] = useState(
+    kategoriKesehatan.reduce((acc, kat) => ({ ...acc, [kat]: true }), {}),
+  );
 
+  // Fetch categories, auth-based point list, and public explore points
   useEffect(() => {
-    // 1. Ambil Master Tipe
-    const fetchMasters = async () => {
+    const normalizePoint = (point) => ({
+      id: point.id,
+      lat: point.latitude,
+      lng: point.longitude,
+      name: point.nama,
+      alamat: point.alamat,
+      kategori: point.kategori?.nama_kategori || "",
+      kategori_id: point.kategori?.id || point.kategori_id || null,
+      warna:
+        point.kategori?.warna ||
+        colorMap[point.kategori?.nama_kategori] ||
+        "#3498db",
+      atribut_tambahan: point.atribut_tambahan || {},
+      user_id: point.user_id,
+      pemilik: point.pemilik?.username || null,
+    });
+
+    const fetchCategories = async () => {
       try {
-        const tRes = await fetch("http://localhost:5000/api/tipe");
-        const tData = await tRes.json();
-        if (tData.status === "success") {
-          setMasterTypes(tData.data);
-          // Set default filters to true
-          const initialFilters = {};
-          tData.data.forEach((t) => (initialFilters[t.nama_tipe] = true));
-          setFilters(initialFilters);
-          if (tData.data.length > 0) setSelectedType(tData.data[0].nama_tipe);
+        const response = await fetch("http://localhost:5000/api/kategori");
+        const result = await response.json();
+        if (result.status === "success" && Array.isArray(result.data)) {
+          const healthCategories = result.data.filter((cat) =>
+            [
+              "Apotek",
+              "Klinik",
+              "Rumah Sakit",
+              "Puskesmas",
+              "Praktek Dokter",
+              "Laboratorium",
+            ].includes(cat.nama_kategori),
+          );
+          setKategoriOptions(healthCategories);
+          setSelectedKategori(
+            (prev) => prev || healthCategories[0]?.nama_kategori || "Apotek",
+          );
         }
-      } catch (e) {
-        const dummy = [
-          { nama_tipe: "rumah", warna: "blue" },
-          { nama_tipe: "kantor", warna: "grey" },
-          { nama_tipe: "kesehatan", warna: "red" },
-          { nama_tipe: "pendidikan", warna: "green" },
-          { nama_tipe: "restauran", warna: "orange" },
-        ];
-        setMasterTypes(dummy);
-        setFilters({
-          rumah: true,
-          kantor: true,
-          kesehatan: true,
-          pendidikan: true,
-          restauran: true,
-        });
+      } catch (error) {
+        console.error("Fetch Categories Error:", error);
       }
     };
 
-    // 2. Ambil Semua Poin
     const fetchPoints = async () => {
+      if (!authKey) {
+        setMarkers([]);
+        return;
+      }
       try {
-        const response = await fetch("http://localhost:5000/api/points");
+        const response = await fetch("http://localhost:5000/api/points", {
+          headers: { Authorization: `Bearer ${authKey}` },
+        });
         const result = await response.json();
-        if (result.status === "success" && result.data) {
-          const backendMarkers = [];
-          Object.values(result.data).forEach((pointGroup) => {
-            pointGroup.forEach((point) => {
-              backendMarkers.push({
-                id: point.id,
-                lat: point.latitude,
-                lng: point.longitude,
-                name: point.nama,
-                alamat: point.alamat,
-                tipe_objek: point.tipe_objek,
-                atribut_tambahan: point.atribut_tambahan || {},
-              });
-            });
-          });
-          setMarkers(backendMarkers);
+        if (result.status === "success" && Array.isArray(result.data)) {
+          setMarkers(result.data.map(normalizePoint));
         }
       } catch (error) {
         console.error("Fetch Points Error:", error);
       }
     };
 
-    fetchMasters();
+    const fetchExplore = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/points/explore",
+        );
+        const result = await response.json();
+        if (result.status === "success" && Array.isArray(result.data)) {
+          setExploreMarkers(result.data.map(normalizePoint));
+        }
+      } catch (error) {
+        console.error("Fetch Explore Error:", error);
+      }
+    };
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setUserLocation([position.coords.latitude, position.coords.longitude]);
+      });
+    }
+
+    fetchCategories();
+    fetchExplore();
     fetchPoints();
-  }, []);
+  }, [authKey]);
 
-  const handleFilterChange = (type) =>
-    setFilters((prev) => ({ ...prev, [type]: !prev[type] }));
+  // Handle login
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("http://localhost:5000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (data.token) {
+        setAuthKey(data.token);
+        setCurrentUserId(data.userId || data.id);
+        setUserRole(data.role || "user");
+        localStorage.setItem("userId", data.userId || data.id);
+        localStorage.setItem("userRole", data.role || "user");
+        alert("✅ Login Sukses!");
+      } else {
+        alert("❌ Login Gagal!");
+      }
+    } catch (err) {
+      alert("⚠️ Error Jaringan / Server Mati.");
+    }
+  };
 
-  // Hapus Data
+  const handleLogout = () => {
+    setAuthKey("");
+    setUserRole(null);
+    setPassword("");
+    setIsEditMode(false);
+    setCurrentUserId(null);
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userRole");
+  };
+
+  // Handle map click
+  const handleMapClick = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+      );
+      const data = await response.json();
+      const locationName = data.display_name || "Lokasi tidak diketahui";
+      setCustomName("");
+      setDynamicAttrs({});
+      setModalData({ isEdit: false, lat, lng, defaultAddress: locationName });
+    } catch (err) {
+      setCustomName("");
+      setDynamicAttrs({});
+      setModalData({
+        isEdit: false,
+        lat,
+        lng,
+        defaultAddress: "Gagal menarik alamat",
+      });
+    }
+  };
+
+  // Handle edit click
+  const handleEditClick = (pos) => {
+    if (!authKey) return;
+    setCustomName(pos.name);
+    setSelectedKategori(pos.kategori);
+    setDynamicAttrs(pos.atribut_tambahan || {});
+    setModalData({
+      isEdit: true,
+      id: pos.id,
+      lat: pos.lat,
+      lng: pos.lng,
+      defaultAddress: pos.alamat,
+    });
+  };
+
+  // Handle save modal
+  const handleSaveModal = async () => {
+    if (!modalData || !authKey) return;
+
+    const selectedCategory = kategoriOptions.find(
+      (cat) => cat.nama_kategori === selectedKategori,
+    );
+    if (!selectedCategory) {
+      alert("⚠️ Kategori belum tersedia. Silakan refresh halaman.");
+      return;
+    }
+
+    const finalName =
+      customName.trim() !== "" ? customName : modalData.defaultAddress;
+    const pointPayload = {
+      nama: finalName,
+      alamat: modalData.defaultAddress,
+      latitude: modalData.lat,
+      longitude: modalData.lng,
+      kategori_id: selectedCategory.id,
+      atribut_tambahan: dynamicAttrs,
+    };
+
+    try {
+      const url = modalData.isEdit
+        ? `http://localhost:5000/api/points/${modalData.id}`
+        : "http://localhost:5000/api/points";
+
+      const backendResponse = await fetch(url, {
+        method: modalData.isEdit ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authKey}`,
+        },
+        body: JSON.stringify(pointPayload),
+      });
+
+      const result = await backendResponse.json();
+      if (result.status === "success") {
+        const returnedPoint = result.data;
+        const savedMarker = {
+          id: returnedPoint.id,
+          lat: returnedPoint.latitude,
+          lng: returnedPoint.longitude,
+          name: returnedPoint.nama,
+          alamat: returnedPoint.alamat,
+          kategori: returnedPoint.kategori?.nama_kategori || selectedKategori,
+          kategori_id: returnedPoint.kategori?.id || selectedCategory.id,
+          warna:
+            returnedPoint.kategori?.warna ||
+            selectedCategory.warna ||
+            colorMap[selectedKategori] ||
+            "#3498db",
+          atribut_tambahan: returnedPoint.atribut_tambahan || dynamicAttrs,
+          user_id: returnedPoint.user_id || currentUserId,
+          pemilik: returnedPoint.pemilik?.username || null,
+        };
+
+        if (modalData.isEdit) {
+          setMarkers((prev) =>
+            prev.map((m) => (m.id === modalData.id ? savedMarker : m)),
+          );
+        } else {
+          setMarkers((prev) => [...prev, savedMarker]);
+        }
+        setModalData(null);
+        setDynamicAttrs({});
+      } else {
+        alert("❌ Gagal: " + result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ Error saat menyimpan data");
+    }
+  };
+
+  // Handle delete
   const handleDeletePoint = async (markerId) => {
     if (!authKey) {
       alert("🔒 AKSES DITOLAK.");
@@ -235,141 +507,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Autentikasi Admin
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("http://localhost:5000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (data.token) {
-        setAuthKey(data.token);
-        alert("Login Sukses!");
-      } else {
-        alert("Login Gagal!");
-      }
-    } catch (err) {
-      alert("Error Jaringan / Server Mati.");
-    }
-  };
-  const handleLogout = () => {
-    setAuthKey("");
-    setPassword("");
-    setIsEditMode(false);
-  };
-
-  // Logika saat Map Diklik dalam MODE EDIT (Membuat data baru)
-  const handleMapClick = async (lat, lng) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-      );
-      const data = await response.json();
-      const locationName = data.display_name || "Lokasi tidak diketahui";
-
-      setCustomName("");
-      setDynamicAttrs({});
-      setModalData({ isEdit: false, lat, lng, defaultAddress: locationName });
-    } catch (err) {
-      setCustomName("");
-      setDynamicAttrs({});
-      setModalData({
-        isEdit: false,
-        lat,
-        lng,
-        defaultAddress: "Gagal menarik alamat",
-      });
-    }
-  };
-
-  // Logika Menekan Tombol Edit
-  const handleEditClick = (pos, e) => {
-    e.stopPropagation();
-    if (!authKey) return;
-    setCustomName(pos.name);
-    setSelectedType(pos.tipe_objek);
-    setDynamicAttrs(pos.atribut_tambahan || {});
-    setModalData({
-      isEdit: true,
-      id: pos.id,
-      lat: pos.lat,
-      lng: pos.lng,
-      defaultAddress: pos.alamat,
-    });
-  };
-
-  // Simpan Data dari Modal (Bisa POST atau PUT)
-  const handleSaveModal = async () => {
-    if (!modalData) return;
-    const finalName =
-      customName.trim() !== "" ? customName : modalData.defaultAddress;
-
-    let finalDynamicAttrs = { ...dynamicAttrs };
-    // Mencegah bug select field yang belum sempat disentuh tapi bernilai undefined
-    if (selectedType === "kesehatan") {
-      if (!finalDynamicAttrs.fasilitas)
-        finalDynamicAttrs.fasilitas = "Rumah Sakit";
-      if (!finalDynamicAttrs.bpjs) finalDynamicAttrs.bpjs = "Ya";
-    } else if (selectedType === "pendidikan") {
-      if (!finalDynamicAttrs.tingkat) finalDynamicAttrs.tingkat = "SD";
-      if (!finalDynamicAttrs.status) finalDynamicAttrs.status = "Negeri";
-    }
-
-    const pointPayload = {
-      nama: finalName,
-      alamat: modalData.defaultAddress,
-      latitude: modalData.lat,
-      longitude: modalData.lng,
-      tipe_objek: selectedType,
-      atribut_tambahan: finalDynamicAttrs,
-    };
-
-    try {
-      const url = modalData.isEdit
-        ? `http://localhost:5000/api/points/${modalData.id}`
-        : "http://localhost:5000/api/points";
-
-      const backendResponse = await fetch(url, {
-        method: modalData.isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authKey}`,
-        },
-        body: JSON.stringify(pointPayload),
-      });
-      const result = await backendResponse.json();
-
-      if (result.status === "success") {
-        const savedMarker = {
-          id: modalData.isEdit ? modalData.id : result.data.id,
-          lat: pointPayload.latitude,
-          lng: pointPayload.longitude,
-          name: pointPayload.nama,
-          alamat: pointPayload.alamat,
-          tipe_objek: pointPayload.tipe_objek,
-          atribut_tambahan: pointPayload.atribut_tambahan,
-        };
-
-        if (modalData.isEdit) {
-          setMarkers((prev) =>
-            prev.map((m) => (m.id === modalData.id ? savedMarker : m)),
-          );
-        } else {
-          setMarkers((prev) => [...prev, savedMarker]);
-        }
-        setModalData(null); // Tutup Modal
-      } else {
-        alert("Gagal: " + result.message);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Komponen Input Form Dinamis Rumpun
+  // Render dynamic form fields per kategori
   const renderDynamicFields = () => {
     const inputStyle = {
       width: "100%",
@@ -380,92 +518,106 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       borderRadius: "6px",
       fontSize: "13px",
     };
-    const labelStyle = { fontSize: "12px", fontWeight: "bold", color: "#555" };
+    const labelStyle = {
+      fontSize: "12px",
+      fontWeight: "bold",
+      color: "#555",
+    };
 
-    if (selectedType === "restauran") {
+    const categoryColor = colorMap[selectedKategori] || "#000";
+
+    if (selectedKategori === "Apotek") {
       return (
         <div
           style={{
-            marginTop: "15px",
-            background: "#fff3e0",
-            padding: "15px",
-            borderRadius: "8px",
-            border: "1px solid #ffe0b2",
+            marginTop: 15,
+            background: "#e0f7fa",
+            padding: 15,
+            borderRadius: 8,
+            border: "1px solid #b2ebf2",
           }}
         >
-          <h4 style={{ margin: "0 0 10px 0", color: "#e67e22" }}>
-            Atribut Khusus: Restauran
+          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
+            📋 Detail Apotek
           </h4>
-          <label style={labelStyle}>Menu Utama / Andalan</label>
+          <label style={labelStyle}>Jam Operasional</label>
           <input
             type="text"
-            placeholder="Misal: Nasi Goreng, Steak..."
-            value={dynamicAttrs.menu || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, menu: e.target.value })
-            }
-            style={inputStyle}
-          />
-
-          <label style={labelStyle}>Jam Buka - Tutup</label>
-          <input
-            type="text"
-            placeholder="Misal: 08:00 - 22:00"
+            placeholder="08:00 - 22:00"
             value={dynamicAttrs.jam_operasional || ""}
             onChange={(e) =>
               setDynamicAttrs({
                 ...dynamicAttrs,
                 jam_operasional: e.target.value,
               })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Layanan 24 Jam</label>
+          <select
+            value={dynamicAttrs.layanan_24jam || "Tidak"}
+            onChange={(e) =>
+              setDynamicAttrs({
+                ...dynamicAttrs,
+                layanan_24jam: e.target.value,
+              })
+            }
+            style={inputStyle}
+          >
+            <option value="Ya">Ya, 24 Jam</option>
+            <option value="Tidak">Tidak</option>
+          </select>
+          <label style={labelStyle}>Kontak</label>
+          <input
+            type="text"
+            placeholder="08123456789"
+            value={dynamicAttrs.kontak || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, kontak: e.target.value })
             }
             style={inputStyle}
           />
         </div>
       );
-    } else if (selectedType === "kesehatan") {
+    }
+    if (selectedKategori === "Klinik") {
       return (
         <div
           style={{
-            marginTop: "15px",
-            background: "#ffebee",
-            padding: "15px",
-            borderRadius: "8px",
-            border: "1px solid #ffcdd2",
+            marginTop: 15,
+            background: "#e3f2fd",
+            padding: 15,
+            borderRadius: 8,
+            border: "1px solid #bbdefb",
           }}
         >
-          <h4 style={{ margin: "0 0 10px 0", color: "#e74c3c" }}>
-            Atribut Khusus: Kesehatan
+          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
+            🏥 Detail Klinik
           </h4>
-          <label style={labelStyle}>Jenis Fasilitas</label>
-          <select
-            value={dynamicAttrs.fasilitas || "Rumah Sakit"}
+          <label style={labelStyle}>Dokter Tersedia</label>
+          <input
+            type="text"
+            placeholder="dr. Budi, dr. Sari, ..."
+            value={dynamicAttrs.dokter || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, dokter: e.target.value })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Fasilitas (pisahkan dengan koma)</label>
+          <input
+            type="text"
+            placeholder="UGD, Laboratorium, Rawat Inap"
+            value={dynamicAttrs.fasilitas || ""}
             onChange={(e) =>
               setDynamicAttrs({ ...dynamicAttrs, fasilitas: e.target.value })
             }
             style={inputStyle}
-          >
-            <option value="Rumah Sakit">Rumah Sakit</option>
-            <option value="Klinik">Klinik Umum</option>
-            <option value="Apotek">Apotek</option>
-            <option value="Puskesmas">Puskesmas</option>
-          </select>
-
-          <label style={labelStyle}>Menerima Pasien BPJS?</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya, Menerima BPJS</option>
-            <option value="Tidak">Tidak Menerima</option>
-          </select>
-
+          />
           <label style={labelStyle}>Jam Operasional</label>
           <input
             type="text"
-            placeholder="Misal: 24 Jam, 08:00 - 20:00"
+            placeholder="08:00 - 20:00"
             value={dynamicAttrs.jam_operasional || ""}
             onChange={(e) =>
               setDynamicAttrs({
@@ -475,11 +627,48 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             }
             style={inputStyle}
           />
-
-          <label style={labelStyle}>Dokter Spesialis Tersedia</label>
+          <label style={labelStyle}>UGD Tersedia</label>
+          <select
+            value={dynamicAttrs.ugd || "Tidak"}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, ugd: e.target.value })
+            }
+            style={inputStyle}
+          >
+            <option value="Ya">Ya, Ada UGD</option>
+            <option value="Tidak">Tidak</option>
+          </select>
+          <label style={labelStyle}>Kontak</label>
           <input
             type="text"
-            placeholder="Misal: Spesialis Anak, Kandungan, Gigi..."
+            placeholder="08123456789"
+            value={dynamicAttrs.kontak || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, kontak: e.target.value })
+            }
+            style={inputStyle}
+          />
+        </div>
+      );
+    }
+    if (selectedKategori === "Rumah Sakit") {
+      return (
+        <div
+          style={{
+            marginTop: 15,
+            background: "#ffebee",
+            padding: 15,
+            borderRadius: 8,
+            border: "1px solid #ffcdd2",
+          }}
+        >
+          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
+            🏨 Detail Rumah Sakit
+          </h4>
+          <label style={labelStyle}>Dokter Spesialis</label>
+          <input
+            type="text"
+            placeholder="Spesialis Anak, Kandungan, Gigi, ..."
             value={dynamicAttrs.dokter_spesialis || ""}
             onChange={(e) =>
               setDynamicAttrs({
@@ -489,107 +678,252 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             }
             style={inputStyle}
           />
-        </div>
-      );
-    } else if (selectedType === "pendidikan") {
-      return (
-        <div
-          style={{
-            marginTop: "15px",
-            background: "#e8f5e9",
-            padding: "15px",
-            borderRadius: "8px",
-            border: "1px solid #c8e6c9",
-          }}
-        >
-          <h4 style={{ margin: "0 0 10px 0", color: "#2ecc71" }}>
-            Atribut Khusus: Pendidikan
-          </h4>
-          <label style={labelStyle}>Tingkat Institusi</label>
-          <select
-            value={dynamicAttrs.tingkat || "SD"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, tingkat: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="SD">SD / Sederajat</option>
-            <option value="SMP">SMP / Sederajat</option>
-            <option value="SMA">SMA / SMK</option>
-            <option value="Perguruan Tinggi">Perguruan Tinggi</option>
-          </select>
-
-          <label style={labelStyle}>Status Institusi</label>
-          <select
-            value={dynamicAttrs.status || "Negeri"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, status: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Negeri">Negeri</option>
-            <option value="Swasta">Swasta</option>
-            <option value="Internasional">Internasional</option>
-          </select>
-        </div>
-      );
-    } else if (selectedType === "kantor") {
-      return (
-        <div
-          style={{
-            marginTop: "15px",
-            background: "#f5f5f5",
-            padding: "15px",
-            borderRadius: "8px",
-            border: "1px solid #e0e0e0",
-          }}
-        >
-          <h4 style={{ margin: "0 0 10px 0", color: "#95a5a6" }}>
-            Atribut Khusus: Perkantoran
-          </h4>
-          <label style={labelStyle}>Bidang Usaha</label>
+          <label style={labelStyle}>Fasilitas (pisahkan dengan koma)</label>
           <input
             type="text"
-            placeholder="Misal: Teknologi, Keuangan, Pemerintahan..."
-            value={dynamicAttrs.bidang || ""}
+            placeholder="ICU, UGD, Rawat Inap, OR, Farmasi"
+            value={dynamicAttrs.fasilitas || ""}
             onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bidang: e.target.value })
+              setDynamicAttrs({ ...dynamicAttrs, fasilitas: e.target.value })
             }
             style={inputStyle}
           />
-        </div>
-      );
-    } else if (selectedType === "rumah") {
-      return (
-        <div
-          style={{
-            marginTop: "15px",
-            background: "#e3f2fd",
-            padding: "15px",
-            borderRadius: "8px",
-            border: "1px solid #bbdefb",
-          }}
-        >
-          <h4 style={{ margin: "0 0 10px 0", color: "#3498db" }}>
-            Atribut Khusus: Pemukiman
-          </h4>
-          <label style={labelStyle}>Nama Pemilik Pemukiman</label>
+          <label style={labelStyle}>Jam Operasional</label>
           <input
             type="text"
-            placeholder="Misal: Keluarga Bapak Budi"
-            value={dynamicAttrs.pemilik || ""}
+            placeholder="24 Jam"
+            value={dynamicAttrs.jam_operasional || ""}
             onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, pemilik: e.target.value })
+              setDynamicAttrs({
+                ...dynamicAttrs,
+                jam_operasional: e.target.value,
+              })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>UGD & Darurat</label>
+          <select
+            value={dynamicAttrs.ugd || "Ya"}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, ugd: e.target.value })
+            }
+            style={inputStyle}
+          >
+            <option value="Ya">Ya, Tersedia</option>
+            <option value="Tidak">Tidak</option>
+          </select>
+          <label style={labelStyle}>Menerima BPJS</label>
+          <select
+            value={dynamicAttrs.bpjs || "Ya"}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
+            }
+            style={inputStyle}
+          >
+            <option value="Ya">Ya, Terima BPJS</option>
+            <option value="Tidak">Tidak</option>
+          </select>
+          <label style={labelStyle}>Kontak</label>
+          <input
+            type="text"
+            placeholder="08123456789"
+            value={dynamicAttrs.kontak || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, kontak: e.target.value })
             }
             style={inputStyle}
           />
         </div>
       );
     }
-    return null; // Jika ada rumpun lain tidak terdefinisi
+    if (selectedKategori === "Puskesmas") {
+      return (
+        <div
+          style={{
+            marginTop: 15,
+            background: "#f1f8e9",
+            padding: 15,
+            borderRadius: 8,
+            border: "1px solid #c5e1a5",
+          }}
+        >
+          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
+            ⚕️ Detail Puskesmas
+          </h4>
+          <label style={labelStyle}>Dokter</label>
+          <input
+            type="text"
+            placeholder="dr. Sari, dr. Putra, ..."
+            value={dynamicAttrs.dokter || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, dokter: e.target.value })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Fasilitas</label>
+          <input
+            type="text"
+            placeholder="UGD, Rawat Inap, Lab, Gigi"
+            value={dynamicAttrs.fasilitas || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, fasilitas: e.target.value })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Jam Operasional</label>
+          <input
+            type="text"
+            placeholder="08:00 - 20:00"
+            value={dynamicAttrs.jam_operasional || ""}
+            onChange={(e) =>
+              setDynamicAttrs({
+                ...dynamicAttrs,
+                jam_operasional: e.target.value,
+              })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>UGD</label>
+          <select
+            value={dynamicAttrs.ugd || "Ya"}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, ugd: e.target.value })
+            }
+            style={inputStyle}
+          >
+            <option value="Ya">Ya</option>
+            <option value="Tidak">Tidak</option>
+          </select>
+          <label style={labelStyle}>Kontak</label>
+          <input
+            type="text"
+            placeholder="08123456789"
+            value={dynamicAttrs.kontak || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, kontak: e.target.value })
+            }
+            style={inputStyle}
+          />
+        </div>
+      );
+    }
+    if (selectedKategori === "Praktek Dokter") {
+      return (
+        <div
+          style={{
+            marginTop: 15,
+            background: "#f3e5f5",
+            padding: 15,
+            borderRadius: 8,
+            border: "1px solid #d1c4e9",
+          }}
+        >
+          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
+            👨‍⚕️ Detail Praktek Dokter
+          </h4>
+          <label style={labelStyle}>Nama Dokter</label>
+          <input
+            type="text"
+            placeholder="dr. Sari Wijaya"
+            value={dynamicAttrs.dokter || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, dokter: e.target.value })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Spesialisasi</label>
+          <input
+            type="text"
+            placeholder="Dokter Umum / Gigi / Kulit"
+            value={dynamicAttrs.spesialisasi || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, spesialisasi: e.target.value })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Jam Operasional</label>
+          <input
+            type="text"
+            placeholder="16:00 - 21:00"
+            value={dynamicAttrs.jam_operasional || ""}
+            onChange={(e) =>
+              setDynamicAttrs({
+                ...dynamicAttrs,
+                jam_operasional: e.target.value,
+              })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Kontak</label>
+          <input
+            type="text"
+            placeholder="08123456789"
+            value={dynamicAttrs.kontak || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, kontak: e.target.value })
+            }
+            style={inputStyle}
+          />
+        </div>
+      );
+    }
+    if (selectedKategori === "Laboratorium") {
+      return (
+        <div
+          style={{
+            marginTop: 15,
+            background: "#fffde7",
+            padding: 15,
+            borderRadius: 8,
+            border: "1px solid #fff9c4",
+          }}
+        >
+          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
+            🔬 Detail Laboratorium
+          </h4>
+          <label style={labelStyle}>Jenis Pemeriksaan</label>
+          <input
+            type="text"
+            placeholder="Darah, Urin, COVID, Radiologi"
+            value={dynamicAttrs.jenis_pemeriksaan || ""}
+            onChange={(e) =>
+              setDynamicAttrs({
+                ...dynamicAttrs,
+                jenis_pemeriksaan: e.target.value,
+              })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Jam Operasional</label>
+          <input
+            type="text"
+            placeholder="08:00 - 16:00"
+            value={dynamicAttrs.jam_operasional || ""}
+            onChange={(e) =>
+              setDynamicAttrs({
+                ...dynamicAttrs,
+                jam_operasional: e.target.value,
+              })
+            }
+            style={inputStyle}
+          />
+          <label style={labelStyle}>Kontak</label>
+          <input
+            type="text"
+            placeholder="08123456789"
+            value={dynamicAttrs.kontak || ""}
+            onChange={(e) =>
+              setDynamicAttrs({ ...dynamicAttrs, kontak: e.target.value })
+            }
+            style={inputStyle}
+          />
+        </div>
+      );
+    }
+    return null;
   };
 
-  // Debounce search query
+  // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -597,7 +931,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // OSM Nominatim API
+  // Search nominatim
   useEffect(() => {
     if (debouncedSearchQuery.trim().length < 3) {
       setSearchResults([]);
@@ -606,41 +940,38 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     setIsSearchSearching(true);
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(debouncedSearchQuery)}&viewbox=114.43,-8.06,115.71,-8.85&bounded=1&limit=5`;
     fetch(url)
-      .then(res => res.json())
-      .then(data => { setSearchResults(data); setIsSearchSearching(false); })
-      .catch(err => { console.error(err); setIsSearchSearching(false); });
+      .then((res) => res.json())
+      .then((data) => {
+        setSearchResults(data);
+        setIsSearchSearching(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setIsSearchSearching(false);
+      });
   }, [debouncedSearchQuery]);
 
   const handleExternalSearchClick = (res) => {
-    setCustomFlyTo({ lat: parseFloat(res.lat), lng: parseFloat(res.lon) });
     setSearchResults([]);
     setSearchQuery(res.display_name);
   };
 
+  // Filter markers by kategori and search
   const displayedMarkers = markers.filter((m) => {
-    const typeMatch = filters[m.tipe_objek] !== false;
+    const categoryMatch = filters[m.kategori] !== false;
+
     let searchMatch = true;
     if (searchQuery.trim().length > 0) {
-       const q = searchQuery.toLowerCase();
-       const nameMatch = m.name?.toLowerCase().includes(q);
-       const tObj = m.tipe_objek?.toLowerCase() || '';
-       const typeQMatch = tObj.includes(q);
-       
-       let synMatch = false;
-       if ((q === 'rs' || q === 'rumah sakit' || q === 'klinik' || q === 'puskesmas' || q === 'apotek') && tObj === 'kesehatan') synMatch = true;
-       if ((q === 'sd' || q === 'smp' || q === 'sma' || q === 'smk' || q === 'kampus' || q === 'sekolah' || q === 'universitas') && tObj === 'pendidikan') synMatch = true;
-       if ((q === 'makan' || q === 'warung' || q === 'cafe' || q === 'resto' || q === 'kopi') && tObj === 'restauran') synMatch = true;
-       if ((q === 'kost' || q === 'kos' || q === 'kontrakan' || q === 'villa' || q === 'hotel') && tObj === 'rumah') synMatch = true;
-
-       let attrMatch = false;
-       if (m.atribut_tambahan) {
-          attrMatch = Object.values(m.atribut_tambahan).some(val => 
-             String(val).toLowerCase().includes(q)
-          );
-       }
-       searchMatch = nameMatch || typeQMatch || synMatch || attrMatch;
+      const q = searchQuery.toLowerCase();
+      const nameMatch = m.name?.toLowerCase().includes(q);
+      const kategoriMatch = m.kategori?.toLowerCase().includes(q);
+      const attrMatch = Object.values(m.atribut_tambahan || {}).some((val) =>
+        String(val).toLowerCase().includes(q),
+      );
+      searchMatch = nameMatch || kategoriMatch || attrMatch;
     }
-    return typeMatch && searchMatch;
+
+    return categoryMatch && searchMatch;
   });
 
   return (
@@ -655,8 +986,15 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         .leaflet-top {
           top: 90px !important;
         }
+        .cluster {
+          background-color: #2ecc71 !important;
+        }
+        .cluster div {
+          background-color: #27ae60 !important;
+        }
       `}</style>
-      {/* MODAL INPUT PETA (Tambah/Edit) */}
+
+      {/* MODAL INPUT */}
       {modalData && (
         <div
           style={{
@@ -677,22 +1015,38 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               background: "#fff",
               padding: "30px",
               borderRadius: "12px",
-              width: "420px",
+              width: "450px",
               maxHeight: "90vh",
               overflowY: "auto",
               boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
             }}
           >
-            <h3 style={{ margin: "0 0 20px 0", display: "flex", alignItems: "center" }}>
-              {modalData.isEdit ? <><Edit3 size={20} style={{marginRight: '8px'}}/> Edit Data Objek</> : <><MapPin size={20} style={{marginRight: '8px'}}/> Detail Objek Baru</>}
+            <h3
+              style={{
+                margin: "0 0 20px 0",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              {modalData.isEdit ? (
+                <>
+                  <Edit3 size={20} style={{ marginRight: "8px" }} /> Edit
+                  Fasilitas Kesehatan
+                </>
+              ) : (
+                <>
+                  <MapPin size={20} style={{ marginRight: "8px" }} /> Tambah
+                  Fasilitas Kesehatan
+                </>
+              )}
             </h3>
 
             <label style={{ fontSize: "12px", fontWeight: "bold" }}>
-              Nama Custom Objek (Opsional)
+              Nama Lokasi
             </label>
             <input
               type="text"
-              placeholder="Ketik nama khusus..."
+              placeholder="Ketik nama..."
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
               style={{
@@ -706,28 +1060,34 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             />
 
             <label style={{ fontSize: "12px", fontWeight: "bold" }}>
-              Kategori Objek (Rumpun Master)
+              Kategori Kesehatan
             </label>
             <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+              value={selectedKategori}
+              onChange={(e) => setSelectedKategori(e.target.value)}
               style={{
                 width: "100%",
                 padding: "12px",
                 marginTop: "5px",
+                marginBottom: "15px",
                 borderRadius: "6px",
                 border: "1px solid #ddd",
                 fontWeight: "bold",
               }}
             >
-              {masterTypes.map((t) => (
-                <option key={t.nama_tipe} value={t.nama_tipe}>
-                  {t.nama_tipe.toUpperCase()}
+              {(kategoriOptions.length > 0
+                ? kategoriOptions
+                : kategoriKesehatan
+              ).map((kat) => (
+                <option
+                  key={kat.nama_kategori || kat}
+                  value={kat.nama_kategori || kat}
+                >
+                  {kat.nama_kategori || kat}
                 </option>
               ))}
             </select>
 
-            {/* INJEKSI FORM DINAMIS SESUAI RUMPUN */}
             {renderDynamicFields()}
 
             <div
@@ -766,99 +1126,370 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   fontWeight: "bold",
                 }}
               >
-                {modalData.isEdit ? "Simpan Perubahan" : "Tambahkan Lokasi"}
+                {modalData.isEdit ? "Simpan" : "Tambah"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-            {/* ===== NAVBAR / HEADER ===== */}
-      <header style={{ height: "70px", backgroundColor: "#ffffff", borderRadius: "15px", position: "absolute", top: "15px", left: "15px", right: "15px", display: "flex", alignItems: "center", padding: "0 30px", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", zIndex: 1100 }}>
-        {/* LOGO & TITLE */}
+      {/* NAVBAR */}
+      <header
+        style={{
+          height: "70px",
+          backgroundColor: "#ffffff",
+          borderRadius: "15px",
+          position: "absolute",
+          top: "15px",
+          left: "15px",
+          right: "15px",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 30px",
+          justifyContent: "space-between",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+          zIndex: 1100,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <div style={{ background: "#f4f6f9", padding: "8px", borderRadius: "8px", display: "flex", border: "1px solid #eaeaea" }}>
-            <MapPin size={24} color="#e74c3c" />
+          <div
+            style={{
+              background: "#f4f6f9",
+              padding: "8px",
+              borderRadius: "8px",
+              display: "flex",
+              border: "1px solid #eaeaea",
+            }}
+          >
+            <HeartPulse size={24} color="#d63031" />
           </div>
           <div>
-            <h1 style={{ margin: 0, color: "#2c3e50", fontSize: "20px", letterSpacing: "1px", fontWeight: 800 }}>Peta Interaktif</h1>
-            <p style={{ margin: 0, color: "#7f8c8d", fontSize: "11px", letterSpacing: "1px", textTransform: "uppercase" }}>{authKey ? "Admin Panel" : "Public View"}</p>
+            <h1
+              style={{
+                margin: 0,
+                color: "#2c3e50",
+                fontSize: "20px",
+                letterSpacing: "1px",
+                fontWeight: 800,
+              }}
+            >
+              Peta Fasilitas Kesehatan
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                color: "#7f8c8d",
+                fontSize: "11px",
+                letterSpacing: "1px",
+                textTransform: "uppercase",
+              }}
+            >
+              {authKey
+                ? userRole === "admin"
+                  ? "✅ Admin Mode"
+                  : "✅ User Mode"
+                : "👤 Public"}
+            </p>
           </div>
         </div>
 
-        {/* SMART SEARCH */}
-        <div style={{ position: "relative", flex: 1, maxWidth: "450px", margin: "0 30px" }}>
-          <div style={{ display: "flex", alignItems: "center", background: "#f4f6f9", borderRadius: "30px", padding: "8px 15px", border: "1px solid #eaeaea", transition: "0.2s" }}>
+        <div
+          style={{
+            position: "relative",
+            flex: 1,
+            maxWidth: "450px",
+            margin: "0 30px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              background: "#f4f6f9",
+              borderRadius: "30px",
+              padding: "8px 15px",
+              border: "1px solid #eaeaea",
+            }}
+          >
             <Search size={18} color="#95a5a6" style={{ marginRight: "10px" }} />
-            <input 
+            <input
               type="text"
-              placeholder="Cari lokasi lokal atau di Bali..."
+              placeholder="Cari fasilitas kesehatan..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ border: "none", outline: "none", width: "100%", fontSize: "14px", background: "transparent" }}
+              style={{
+                border: "none",
+                outline: "none",
+                width: "100%",
+                fontSize: "14px",
+                background: "transparent",
+              }}
             />
-            {isSearchSearching && <span style={{ fontSize: "12px", color: "#aaa" }}>...</span>}
-            {searchQuery && <X size={16} color="#ccc" style={{ cursor: "pointer" }} onClick={() => setSearchQuery("")} />}
+            {searchQuery && (
+              <X
+                size={16}
+                color="#ccc"
+                style={{ cursor: "pointer" }}
+                onClick={() => setSearchQuery("")}
+              />
+            )}
           </div>
-          
-          {/* SEARCH DROPDOWN */}
-          {searchResults.length > 0 && (
-            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: "10px", background: "#fff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", overflow: "hidden", zIndex: 1200 }}>
-              {searchResults.map((res, i) => (
-                <div key={i} onClick={() => handleExternalSearchClick(res)} style={{ padding: "12px 15px", borderBottom: "1px solid #eee", cursor: "pointer", display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                  <MapPin size={16} color="#3498db" style={{ marginTop: "3px", flexShrink: 0 }} />
-                  <span style={{ fontSize: "13px", color: "#333", lineHeight: "1.4" }}>{res.display_name}</span>
+          {(searchResults.length > 0 || isSearchSearching) && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                marginTop: "10px",
+                background: "#fff",
+                borderRadius: "8px",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                maxHeight: "200px",
+                overflowY: "auto",
+                zIndex: 1200,
+              }}
+            >
+              {isSearchSearching ? (
+                <div
+                  style={{
+                    padding: "12px 15px",
+                    fontSize: "13px",
+                    color: "#777",
+                  }}
+                >
+                  Mencari lokasi...
                 </div>
-              ))}
+              ) : (
+                searchResults.map((res, i) => (
+                  <div
+                    key={i}
+                    onClick={() => handleExternalSearchClick(res)}
+                    style={{
+                      padding: "12px 15px",
+                      borderBottom: "1px solid #eee",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {res.display_name}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
 
-        {/* NAVBAR ACTIONS */}
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          {/* FILTER DROPDOWN */}
           <div style={{ position: "relative" }}>
-            <button 
-              onClick={() => { setIsFilterDropdownOpen(!isFilterDropdownOpen); setIsLoginDropdownOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f4f6f9", border: "1px solid #eaeaea", color: "#2c3e50", padding: "10px 16px", borderRadius: "30px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
+            <button
+              onClick={() => {
+                setIsFilterDropdownOpen(!isFilterDropdownOpen);
+                setIsLoginDropdownOpen(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#f4f6f9",
+                border: "1px solid #eaeaea",
+                color: "#2c3e50",
+                padding: "10px 16px",
+                borderRadius: "30px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
             >
               <Filter size={16} /> Filter
             </button>
             {isFilterDropdownOpen && (
-              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "10px", background: "#fff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", width: "250px", padding: "15px", zIndex: 1200 }}>
-                <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>Filter Layer</h4>
-                {masterTypes.map((t) => (
-                  <label key={t.nama_tipe} style={{ display: "flex", alignItems: "center", marginBottom: "12px", cursor: "pointer" }}>
-                    <input type="checkbox" checked={filters[t.nama_tipe] !== false} onChange={() => handleFilterChange(t.nama_tipe)} style={{ marginRight: "10px", transform: "scale(1.2)", accentColor: "#3498db" }} />
-                    <span style={{ fontSize: "14px", color: "#495057", textTransform: "capitalize", fontWeight: "600" }}>{t.nama_tipe.replace("_", " ")}</span>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: "10px",
+                  background: "#fff",
+                  borderRadius: "8px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                  width: "250px",
+                  padding: "15px",
+                  zIndex: 1200,
+                }}
+              >
+                <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
+                  Filter Kategori
+                </h4>
+                {kategoriKesehatan.map((kat) => (
+                  <label
+                    key={kat}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      marginBottom: "12px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters[kat] !== false}
+                      onChange={() =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          [kat]: !prev[kat],
+                        }))
+                      }
+                      style={{
+                        marginRight: "10px",
+                        transform: "scale(1.2)",
+                        accentColor: "#3498db",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        color: "#495057",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {kat}
+                    </span>
                   </label>
                 ))}
               </div>
             )}
           </div>
 
-          {/* LOGIN / ADMIN DROPDOWN */}
-          <div style={{ position: "relative" }}>
-            <button 
-              onClick={() => { setIsLoginDropdownOpen(!isLoginDropdownOpen); setIsFilterDropdownOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", background: authKey ? "#2ecc71" : "#3498db", border: "none", color: "#fff", padding: "10px 16px", borderRadius: "30px", cursor: "pointer", fontWeight: "bold", transition: "0.2s" }}
+          {authKey && userRole === "admin" && (
+            <button
+              onClick={() => setShowExplore(!showExplore)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#f4f6f9",
+                border: "1px solid #eaeaea",
+                color: "#2c3e50",
+                padding: "10px 16px",
+                borderRadius: "30px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
             >
-              {authKey ? <User size={16} /> : <LogIn size={16} />} 
-              {authKey ? "Admin Aktif" : "Akses Admin"}
+              <Compass size={16} /> Eksplorasi
+            </button>
+          )}
+
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => {
+                setIsLoginDropdownOpen(!isLoginDropdownOpen);
+                setIsFilterDropdownOpen(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: authKey ? "#2ecc71" : "#3498db",
+                border: "none",
+                color: "#fff",
+                padding: "10px 16px",
+                borderRadius: "30px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              {authKey ? <User size={16} /> : <LogIn size={16} />}
+              {authKey ? "Admin" : "Login"}
             </button>
             {isLoginDropdownOpen && (
-              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "10px", background: "#fff", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", width: "280px", padding: "20px", zIndex: 1200 }}>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: "10px",
+                  background: "#fff",
+                  borderRadius: "8px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                  width: "280px",
+                  padding: "20px",
+                  zIndex: 1200,
+                }}
+              >
                 {!authKey ? (
                   <form onSubmit={handleLogin}>
-                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>Login Admin</h4>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email..." style={{ width: "100%", padding: "12px", marginBottom: "10px", border: "1px solid #ddd", borderRadius: "6px", boxSizing: "border-box" }} />
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password..." style={{ width: "100%", padding: "12px", marginBottom: "15px", border: "1px solid #ddd", borderRadius: "6px", boxSizing: "border-box" }} />
-                    <button type="submit" style={{ width: "100%", padding: "12px", background: "#3498db", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>IZINKAN AKSES</button>
+                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
+                      Login Admin
+                    </h4>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email..."
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        marginBottom: "10px",
+                        border: "1px solid #ddd",
+                        borderRadius: "6px",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password..."
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        marginBottom: "15px",
+                        border: "1px solid #ddd",
+                        borderRadius: "6px",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        background: "#3498db",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      IZINKAN AKSES
+                    </button>
                   </form>
                 ) : (
                   <div>
-                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>Menu Admin</h4>
-                    <button onClick={handleLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px", background: "#e74c3c", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}><LogOut size={16} /> LOGOUT</button>
+                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
+                      Menu Admin
+                    </h4>
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        padding: "12px",
+                        background: "#e74c3c",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      <LogOut size={16} /> LOGOUT
+                    </button>
                   </div>
                 )}
               </div>
@@ -867,56 +1498,169 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         </div>
       </header>
 
-      {/* ===== LAYOUT BAWAH (PETA & OVERLAY) ===== */}
-      <div onClick={() => { setIsFilterDropdownOpen(false); setIsLoginDropdownOpen(false); }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }}>
-
-        {/* KONTROL ATAS KANAN: Toggle Tile + Peta/Tabel */}
-        <div style={{ position: 'absolute', top: '100px', right: '10px', zIndex: 1000, display: 'flex', gap: '8px', alignItems: 'center' }}>
-
-          {/* CUSTOM TILE LAYER DROPDOWN */}
-          <div style={{ position: 'relative' }}>
+      {/* MAP CONTROLS */}
+      <div
+        onClick={() => {
+          setIsFilterDropdownOpen(false);
+          setIsLoginDropdownOpen(false);
+        }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: "100px",
+            right: "10px",
+            zIndex: 1000,
+            display: "flex",
+            gap: "8px",
+            alignItems: "center",
+          }}
+        >
+          {/* Tile Layer Toggle */}
+          <div style={{ position: "relative" }}>
             <button
-              onClick={(e) => { e.stopPropagation(); setIsTileDropdownOpen(p => !p); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fff', border: '1px solid #dde', color: '#343a40', padding: '8px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', fontSize: '13px' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsTileDropdownOpen(!isTileDropdownOpen);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "#fff",
+                border: "1px solid #ddd",
+                color: "#343a40",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                fontSize: "13px",
+              }}
             >
               <Layers size={15} />
-              {tileLayer === 'street' ? 'Peta Jalan' : 'Satelit'}
-              <ChevronDown size={13} style={{ marginLeft: '2px' }} />
+              {tileLayer === "street" ? "Peta" : "Satelit"}
+              <ChevronDown size={13} />
             </button>
             {isTileDropdownOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: '#fff', borderRadius: '8px', boxShadow: '0 8px 20px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: '130px', zIndex: 1500 }}>
-                <div onClick={() => { setTileLayer('street'); setIsTileDropdownOpen(false); }} style={{ padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: tileLayer === 'street' ? '#f0f4ff' : '#fff', fontWeight: tileLayer === 'street' ? 'bold' : 'normal', color: '#343a40', fontSize: '13px' }}>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  right: 0,
+                  background: "#fff",
+                  borderRadius: "8px",
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
+                  minWidth: "130px",
+                  zIndex: 1500,
+                }}
+              >
+                <div
+                  onClick={() => {
+                    setTileLayer("street");
+                    setIsTileDropdownOpen(false);
+                  }}
+                  style={{
+                    padding: "10px 15px",
+                    cursor: "pointer",
+                    background: tileLayer === "street" ? "#f0f4ff" : "#fff",
+                    fontWeight: tileLayer === "street" ? "bold" : "normal",
+                    fontSize: "13px",
+                  }}
+                >
                   🗺️ Peta Jalan
                 </div>
-                <div onClick={() => { setTileLayer('satellite'); setIsTileDropdownOpen(false); }} style={{ padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', background: tileLayer === 'satellite' ? '#f0f4ff' : '#fff', fontWeight: tileLayer === 'satellite' ? 'bold' : 'normal', color: '#343a40', fontSize: '13px' }}>
+                <div
+                  onClick={() => {
+                    setTileLayer("satellite");
+                    setIsTileDropdownOpen(false);
+                  }}
+                  style={{
+                    padding: "10px 15px",
+                    cursor: "pointer",
+                    background: tileLayer === "satellite" ? "#f0f4ff" : "#fff",
+                    fontWeight: tileLayer === "satellite" ? "bold" : "normal",
+                    fontSize: "13px",
+                  }}
+                >
                   🛰️ Satelit
                 </div>
               </div>
             )}
           </div>
 
-          {/* TOGGLE PETA VS TABEL (hanya jika admin) */}
-          {authKey && (
-            <div style={{ display: 'flex', gap: '5px', background: '#fff', padding: '5px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-              <button onClick={() => setActiveView('map')} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', border: 'none', background: activeView === 'map' ? '#343a40' : 'transparent', color: activeView === 'map' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s', fontSize: '13px' }}><Map size={15} style={{marginRight: '5px'}}/> Peta</button>
-              <button onClick={() => setActiveView('table')} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', border: 'none', background: activeView === 'table' ? '#343a40' : 'transparent', color: activeView === 'table' ? '#fff' : '#343a40', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s', fontSize: '13px' }}><Table size={15} style={{marginRight: '5px'}}/> Tabel</button>
-            </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (userLocation && mapInstance) {
+                mapInstance.flyTo(userLocation, 16, {
+                  animate: true,
+                  duration: 1.2,
+                });
+              }
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#fff",
+              border: "1px solid #ddd",
+              color: "#343a40",
+              padding: "8px 14px",
+              borderRadius: "8px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              fontSize: "13px",
+            }}
+          >
+            <Compass size={15} /> Lokasi Saya
+          </button>
+          {routeTarget && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setRouteTarget(null);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "#fff",
+                border: "1px solid #ddd",
+                color: "#343a40",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                fontSize: "13px",
+              }}
+            >
+              ✖ Hapus Rute
+            </button>
           )}
         </div>
 
-        {/* PETA CONTAINER */}
+        {/* PETA */}
         <MapContainer
           center={[-8.65, 115.2167]}
           zoom={15}
           minZoom={9}
           maxZoom={18}
           maxBounds={baliBounds}
+          whenCreated={setMapInstance}
           style={{
             height: "100%",
             width: "100%",
-            marginLeft: "0",
-            transition: "width 0.4s ease, margin-left 0.4s ease",
-            zIndex: 1,
             cursor: isEditMode ? "crosshair" : "grab",
           }}
         >
@@ -924,12 +1668,18 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             activeMarkerId={activeMarkerId}
             markers={displayedMarkers}
           />
+          <UserLocationMarker />
 
-          {/* TILE LAYER berdasarkan state */}
-          {tileLayer === 'street' ? (
-            <TileLayer attribution="© OSM" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          {tileLayer === "street" ? (
+            <TileLayer
+              attribution="© OSM"
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
           ) : (
-            <TileLayer attribution="© Esri" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+            <TileLayer
+              attribution="© Esri"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            />
           )}
 
           {authKey && (
@@ -941,116 +1691,239 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             />
           )}
 
-          {displayedMarkers.map((pos, index) => {
-            // Cari warna dari master data, default ke biru kalau nggak ketemu
-            const mType = masterTypes.find(
-              (t) => t.nama_tipe === pos.tipe_objek,
-            );
-            const markerColor = mType
-              ? mType.warna
-              : colorMap[pos.tipe_objek] || "#3498db";
+          {/* MARKER CLUSTER */}
+          <MarkerClusterGroup>
+            {displayedMarkers.map((pos) => {
+              const markerColor = colorMap[pos.kategori] || "#3498db";
+              const isActive = activeMarkerId === pos.id;
+              const icon = createMarkerIcon(
+                markerColor,
+                pos.kategori,
+                isActive,
+              );
 
-            // Peta konversi ke warna Hex agar elegan
-            const cssColors = {
-              blue: "#3498db",
-              red: "#e74c3c",
-              orange: "#e67e22",
-              grey: "#95a5a6",
-              green: "#2ecc71",
-            };
-
-            const finalColor =
-              cssColors[markerColor] || markerColor || "#3498db";
-
-            const nIcon = createRumpunIcon(finalColor, pos.tipe_objek);
-
-            return (
-              <Marker
-                key={pos.id}
-                position={[pos.lat, pos.lng]}
-                icon={nIcon}
-                eventHandlers={{
-                  click: () => setActiveMarkerId(pos.id), // Saat marker diklik, set Active ID
-                }}
-              >
-                <Popup onClose={() => setActiveMarkerId(null)}>
-                  <div style={{ textAlign: "center", marginBottom: "8px" }}>
-                    <b
-                      style={{
-                        background: "#007bff",
-                        color: "white",
-                        padding: "3px 8px",
-                        borderRadius: "10px",
-                        textTransform: "uppercase",
-                        fontSize: "11px",
-                        display: "inline-block",
-                      }}
-                    >
-                      {pos.tipe_objek}
-                    </b>
-                  </div>
-                  <b>No Urut:</b> {index + 1}
-                  <br />
-                  <b>Nama Lokasi:</b>
-                  <br />
-                  <span style={{ fontSize: "14px", color: "#111" }}>
-                    {pos.name}
-                  </span>
-                  <br />
-                  <br />
-                  {/* Render Atribut Dinamis secara elegan */}
-                  {Object.keys(pos.atribut_tambahan || {}).length > 0 && (
-                    <div
-                      style={{
-                        background: "#f8f9fa",
-                        padding: "8px",
-                        borderRadius: "6px",
-                        marginBottom: "10px",
-                        border: "1px solid #eaeaea",
-                      }}
-                    >
-                      <strong
+              return (
+                <Marker
+                  key={pos.id}
+                  position={[pos.lat, pos.lng]}
+                  icon={icon}
+                  eventHandlers={{
+                    click: () => setActiveMarkerId(pos.id),
+                  }}
+                >
+                  <Popup onClose={() => setActiveMarkerId(null)}>
+                    <div style={{ textAlign: "center", marginBottom: "12px" }}>
+                      <span
                         style={{
-                          fontSize: "11px",
-                          color: "#7f8c8d",
-                          display: "block",
-                          marginBottom: "4px",
+                          background: markerColor,
+                          color: "white",
+                          padding: "4px 12px",
+                          borderRadius: "12px",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          display: "inline-block",
                         }}
                       >
-                        INFORMASI SPESIFIK RUMPUN:
-                      </strong>
-                      {Object.entries(pos.atribut_tambahan).map(
-                        ([key, val]) => (
-                          <div
-                            key={key}
-                            style={{ fontSize: "12px", marginBottom: "3px" }}
-                          >
-                            <span
-                              style={{
-                                textTransform: "capitalize",
-                                fontWeight: "600",
-                                color: "#34495e",
-                              }}
-                            >
-                              {key.replace("_", " ")}:
-                            </span>{" "}
-                            {val}
-                          </div>
-                        ),
-                      )}
+                        {pos.kategori}
+                      </span>
                     </div>
-                  )}
-                  <b>Alamat Geografis:</b>
-                  <br />
-                  <span style={{ color: "#666" }}>{pos.alamat}</span>
-                  <br />
-                </Popup>
-              </Marker>
-            );
-          })}
+                    <b>📍 {pos.name}</b>
+                    <br />
+                    <span style={{ fontSize: "12px", color: "#666" }}>
+                      {pos.alamat}
+                    </span>
+                    <br />
+                    <br />
+
+                    {Object.keys(pos.atribut_tambahan || {}).length > 0 && (
+                      <div
+                        style={{
+                          background: "#f8f9fa",
+                          padding: "8px",
+                          borderRadius: "6px",
+                          marginBottom: "10px",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <strong style={{ fontSize: "11px" }}>DETAIL:</strong>
+                        <br />
+                        {Object.entries(pos.atribut_tambahan).map(
+                          ([key, val]) => (
+                            <div key={key} style={{ marginTop: "4px" }}>
+                              <b>{key}:</b> {val}
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    )}
+
+                    {userLocation && (
+                      <button
+                        onClick={() => {
+                          setRouteTarget(pos);
+                          setActiveMarkerId(pos.id);
+                        }}
+                        style={{
+                          width: "100%",
+                          padding: "8px 10px",
+                          background: "#2ecc71",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        Rute ke Sini
+                      </button>
+                    )}
+                    {authKey && (
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          display: "flex",
+                          gap: "5px",
+                        }}
+                      >
+                        <button
+                          onClick={() => handleEditClick(pos)}
+                          style={{
+                            flex: 1,
+                            padding: "6px",
+                            background: "#f39c12",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeletePoint(pos.id)}
+                          style={{
+                            flex: 1,
+                            padding: "6px",
+                            background: "#dc3545",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    )}
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MarkerClusterGroup>
+
+          {/* Route polyline jika ada */}
+          {routeTarget && userLocation && (
+            <Polyline
+              positions={[userLocation, [routeTarget.lat, routeTarget.lng]]}
+              color="#FF0000"
+              weight={3}
+              opacity={0.8}
+            />
+          )}
         </MapContainer>
 
-        {/* TOGGLE EDIT MODE MELAYANG (HANYA ADMIN) */}
+        {showExplore && (
+          <div
+            style={{
+              position: "absolute",
+              top: "140px",
+              left: "15px",
+              width: "360px",
+              maxHeight: "70vh",
+              overflowY: "auto",
+              background: "rgba(255,255,255,0.98)",
+              borderRadius: "16px",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.18)",
+              padding: "18px",
+              zIndex: 1600,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "14px",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px" }}>
+                  Eksplorasi Semua Titik
+                </h3>
+                <p
+                  style={{
+                    margin: "6px 0 0 0",
+                    color: "#626262",
+                    fontSize: "12px",
+                  }}
+                >
+                  Klik nama untuk fokus ke marker dan rute.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowExplore(false)}
+                style={{
+                  border: "none",
+                  background: "#e74c3c",
+                  color: "white",
+                  borderRadius: "12px",
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Tutup
+              </button>
+            </div>
+            {exploreMarkers.length === 0 ? (
+              <p style={{ margin: 0, color: "#555" }}>
+                Memuat marker eksplorasi...
+              </p>
+            ) : (
+              exploreMarkers.map((point) => (
+                <div
+                  key={`explore-${point.id}`}
+                  onClick={() => {
+                    setActiveMarkerId(point.id);
+                    setRouteTarget(point);
+                    setShowExplore(false);
+                    if (mapInstance) {
+                      mapInstance.flyTo([point.lat, point.lng], 16, {
+                        animate: true,
+                        duration: 1.3,
+                      });
+                    }
+                  }}
+                  style={{
+                    cursor: "pointer",
+                    borderBottom: "1px solid #e0e0e0",
+                    padding: "12px 0",
+                  }}
+                >
+                  <strong>{point.name}</strong>
+                  <div style={{ fontSize: "12px", color: "#626262" }}>
+                    {point.kategori} — {point.alamat}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Toggle Edit Mode (Admin) */}
         {authKey && (
           <div
             style={{
@@ -1074,8 +1947,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 color: isEditMode ? "#e74c3c" : "#333",
               }}
             >
-              Mode Penambahan Titik :{" "}
-              {isEditMode ? "AKTIF (Klik Peta)" : "MATI"}
+              Mode Tambah: {isEditMode ? "✅ AKTIF" : "❌ MATI"}
             </span>
             <button
               onClick={() => setIsEditMode(!isEditMode)}
@@ -1087,250 +1959,37 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 borderRadius: "15px",
                 cursor: "pointer",
                 fontWeight: "bold",
-                display: "flex",
-                alignItems: "center"
               }}
             >
-              <Power size={14} style={{marginRight:'6px'}}/> {isEditMode ? "Matikan" : "Nyalakan"}
+              <Power
+                size={14}
+                style={{ marginRight: "6px", display: "inline" }}
+              />
+              {isEditMode ? "Matikan" : "Nyalakan"}
             </button>
           </div>
         )}
       </div>
 
-      {/* ===== TABEL ADMIN (FULL SCREEN TOGGLE OVERLAY) ===== */}
-      {authKey && activeView === 'table' && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: '0',
-            width: '100%',
-            height: '100vh',
-            background: '#f4f4f9',
-            padding: '80px 40px 40px 40px',
-            display: 'flex',
-            flexDirection: 'column',
-            zIndex: 999,
-            boxSizing: 'border-box',
-            transition: "width 0.4s ease, left 0.4s ease",
-          }}
-        >
-          <div style={{ marginBottom: "20px" }}>
-            <h2 style={{ margin: 0, color: "#333", fontSize: "24px" }}>
-              Database Rumpun ({displayedMarkers.length} Entri)
-            </h2>
-            <p style={{ color: "#777", margin: "5px 0 0 0" }}>Manajemen data spasial yang tersimpan di sistem.</p>
-          </div>
-
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              background: "#fff",
-              borderRadius: "12px",
-              boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                textAlign: "left",
-                fontSize: "14px",
-              }}
-            >
-              <thead
-                style={{
-                  background: "#4a5568",
-                  color: "#fff",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 10,
-                }}
-              >
-                <tr>
-                  <th style={{ padding: "12px 15px" }}>No</th>
-                  <th style={{ padding: "12px 15px" }}>Rumpun</th>
-                  <th style={{ padding: "12px 15px" }}>Nama Lokasi</th>
-                  <th style={{ padding: "12px 15px" }}>Atribut Khusus</th>
-                  <th style={{ padding: "12px 15px", textAlign: "center" }}>
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedMarkers.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      style={{
-                        padding: "30px",
-                        textAlign: "center",
-                        color: "#888",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      Belum ada data tersedia.
-                    </td>
-                  </tr>
-                ) : (
-                  displayedMarkers.map((pos, index) => (
-                    <tr
-                      key={pos.id}
-                      onClick={() => setActiveMarkerId(pos.id)}
-                      style={{
-                        borderBottom: "1px solid #eee",
-                        cursor: "pointer",
-                        background:
-                          activeMarkerId === pos.id
-                            ? "#e3f2fd"
-                            : "transparent",
-                        transition: "background 0.3s",
-                      }}
-                    >
-                      <td style={{ padding: "10px 15px" }}>
-                        <span
-                          style={{
-                            background: "#4a5568",
-                            color: "#fff",
-                            padding: "2px 6px",
-                            borderRadius: "10px",
-                            fontSize: "11px",
-                          }}
-                        >
-                          {index + 1}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: "10px 15px",
-                          textTransform: "capitalize",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        <span
-                          style={{
-                            background: "#e2e8f0",
-                            color: "#2d3748",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                          }}
-                        >
-                          {pos.tipe_objek}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: "10px 15px",
-                          fontWeight: "bold",
-                          color: "#222",
-                        }}
-                      >
-                        {pos.name}
-                      </td>
-                      <td
-                        style={{
-                          padding: "10px 15px",
-                          color: "#555",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <code
-                          style={{
-                            background: "#f8f9fa",
-                            padding: "3px 6px",
-                            borderRadius: "4px",
-                            display: "block",
-                            maxWidth: "250px",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {JSON.stringify(pos.atribut_tambahan || {})}
-                        </code>
-                      </td>
-                      <td
-                        style={{ padding: "10px 15px", textAlign: "center" }}
-                      >
-                        {authKey ? (
-                          <>
-                            <button
-                              onClick={(e) => handleEditClick(pos, e)}
-                              style={{
-                                padding: "5px 10px",
-                                background: "#f39c12",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: "bold",
-                                marginRight: "5px",
-                                display: "inline-flex",
-                                alignItems: "center"
-                              }}
-                            >
-                              <Edit3 size={14} style={{marginRight:'4px'}}/> Edit
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeletePoint(pos.id);
-                              }}
-                              style={{
-                                padding: "5px 10px",
-                                background: "#dc3545",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: "bold",
-                                display: "inline-flex",
-                                alignItems: "center"
-                              }}
-                            >
-                              <Trash2 size={14} style={{marginRight:'4px'}}/> Hapus
-                            </button>
-                          </>
-                        ) : (
-                          <span style={{ color: "#aaa", fontSize: "11px" }}>
-                            Protected
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Jika belum login (Bukan Admin) tampilkan navigasi ini di bawah */}
+      {/* Footer untuk non-admin */}
       {!authKey && (
         <div
           style={{
-            height: "7vh",
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            width: "100%",
+            height: "60px",
             background: "#212529",
             color: "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: "13px",
-            zIndex: 1000
+            zIndex: 1000,
           }}
         >
-          Buka{" "}
-          <a
-            href="/admin"
-            style={{ color: "#3498db", marginLeft: "5px", fontWeight: "bold" }}
-          >
-            Halaman Admin
-          </a>
+          💡 Login untuk mengelola fasilitas kesehatan
         </div>
       )}
     </div>
