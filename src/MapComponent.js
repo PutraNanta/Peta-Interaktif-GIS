@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import {
   X,
@@ -206,8 +207,11 @@ function UserLocationMarker() {
   );
 }
 
+// Routing placeholder (using polyline for now)
+
 // ===== MAIN COMPONENT =====
 export default function MapComponent({ isAdminMode: _isAdminMode }) {
+  const navigate = useNavigate();
   const [markers, setMarkers] = useState([]);
   const [kategoriKesehatan] = useState([
     "Rumah Sakit Umum",
@@ -236,9 +240,14 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [userLocation, setUserLocation] = useState(null);
 
   // Auth & Edit States
-  const [authKey, setAuthKey] = useState("");
+  const [authKey, setAuthKey] = useState(
+    localStorage.getItem("authToken") || "",
+  );
   const [userRole, setUserRole] = useState(
     localStorage.getItem("userRole") || null,
+  );
+  const [userName, setUserName] = useState(
+    localStorage.getItem("userName") || "",
   );
   const [email, setEmail] = useState("admin@test.com");
   const [password, setPassword] = useState("");
@@ -250,6 +259,19 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [kategoriOptions, setKategoriOptions] = useState([]);
   const [exploreMarkers, setExploreMarkers] = useState([]);
 
+  // Check auth on mount
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      navigate("/login");
+    } else {
+      setAuthKey(token);
+      setUserRole(localStorage.getItem("userRole") || "user");
+      setUserName(localStorage.getItem("userName") || "");
+      setCurrentUserId(localStorage.getItem("userId"));
+    }
+  }, [navigate]);
+
   // Form States
   const [selectedKategori, setSelectedKategori] = useState("Apotek");
   const [customName, setCustomName] = useState("");
@@ -258,27 +280,37 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [filters, setFilters] = useState(
     kategoriKesehatan.reduce((acc, kat) => ({ ...acc, [kat]: true }), {}),
   );
+  const [filtersExplore, setFiltersExplore] = useState(
+    kategoriKesehatan.reduce((acc, kat) => ({ ...acc, [kat]: true }), {}),
+  );
+
+  // Routing States
+  const [routingEnabled, setRoutingEnabled] = useState(false);
+  const [startPoint, setStartPoint] = useState(null);
+  const [endPoint, setEndPoint] = useState(null);
+  const [routingStep, setRoutingStep] = useState(0); // 0: off, 1: select start, 2: select end
+
+  // Normalize point data
+  const normalizePoint = (point) => ({
+    id: point.id,
+    lat: point.latitude,
+    lng: point.longitude,
+    name: point.nama,
+    alamat: point.alamat,
+    kategori: point.kategori?.nama_kategori || "",
+    kategori_id: point.kategori?.id || point.kategori_id || null,
+    warna:
+      point.kategori?.warna ||
+      colorMap[point.kategori?.nama_kategori] ||
+      "#3498db",
+    atribut_tambahan: point.atribut_tambahan || {},
+    user_id: point.user_id,
+    pemilik: point.pemilik?.username || null,
+    is_public: point.is_public !== undefined ? point.is_public : true,
+  });
 
   // Fetch categories, auth-based point list, and public explore points
   useEffect(() => {
-    const normalizePoint = (point) => ({
-      id: point.id,
-      lat: point.latitude,
-      lng: point.longitude,
-      name: point.nama,
-      alamat: point.alamat,
-      kategori: point.kategori?.nama_kategori || "",
-      kategori_id: point.kategori?.id || point.kategori_id || null,
-      warna:
-        point.kategori?.warna ||
-        colorMap[point.kategori?.nama_kategori] ||
-        "#3498db",
-      atribut_tambahan: point.atribut_tambahan || {},
-      user_id: point.user_id,
-      pemilik: point.pemilik?.username || null,
-      is_public: point.is_public !== undefined ? point.is_public : true,
-    });
-
     const fetchCategories = async () => {
       try {
         const response = await fetch("http://localhost:5000/api/kategori");
@@ -348,6 +380,35 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     fetchPoints();
   }, [authKey, kategoriKesehatan]);
 
+  // Reset routing when disabled
+  useEffect(() => {
+    if (!routingEnabled) {
+      setStartPoint(null);
+      setEndPoint(null);
+      setRoutingStep(0);
+    }
+  }, [routingEnabled]);
+
+  // Fetch explore markers when explore mode is activated
+  useEffect(() => {
+    if (showExplore) {
+      const fetchExplore = async () => {
+        try {
+          const response = await fetch(
+            "http://localhost:5000/api/points/explore",
+          );
+          const result = await response.json();
+          if (result.status === "success" && Array.isArray(result.data)) {
+            setExploreMarkers(result.data.map(normalizePoint));
+          }
+        } catch (error) {
+          console.error("Fetch Explore Error:", error);
+        }
+      };
+      fetchExplore();
+    }
+  }, [showExplore]);
+
   // Handle login
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -362,6 +423,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         setAuthKey(data.token);
         setCurrentUserId(data.userId || data.id);
         setUserRole(data.role || "user");
+        localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId || data.id);
         localStorage.setItem("userRole", data.role || "user");
         alert("✅ Login Sukses!");
@@ -376,11 +438,15 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const handleLogout = () => {
     setAuthKey("");
     setUserRole(null);
+    setUserName("");
     setPassword("");
     setIsEditMode(false);
     setCurrentUserId(null);
+    localStorage.removeItem("authToken");
     localStorage.removeItem("userId");
     localStorage.removeItem("userRole");
+    localStorage.removeItem("userName");
+    navigate("/login");
   };
 
   // Handle map click
@@ -409,7 +475,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
   // Handle edit click
   const handleEditClick = (pos) => {
-    if (!authKey) return;
+    if (!authKey || showExplore) return;
     setCustomName(pos.name);
     setSelectedKategori(pos.kategori);
     setDynamicAttrs(pos.atribut_tambahan || {});
@@ -1279,22 +1345,25 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   };
 
   // Filter markers by kategori and search
-  const displayedMarkers = markers.filter((m) => {
-    const categoryMatch = filters[m.kategori] !== false;
+  const displayedMarkers = (showExplore ? exploreMarkers : markers).filter(
+    (m) => {
+      const currentFilters = showExplore ? filtersExplore : filters;
+      const categoryMatch = currentFilters[m.kategori] !== false;
 
-    let searchMatch = true;
-    if (searchQuery.trim().length > 0) {
-      const q = searchQuery.toLowerCase();
-      const nameMatch = m.name?.toLowerCase().includes(q);
-      const kategoriMatch = m.kategori?.toLowerCase().includes(q);
-      const attrMatch = Object.values(m.atribut_tambahan || {}).some((val) =>
-        String(val).toLowerCase().includes(q),
-      );
-      searchMatch = nameMatch || kategoriMatch || attrMatch;
-    }
+      let searchMatch = true;
+      if (searchQuery.trim().length > 0) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = m.name?.toLowerCase().includes(q);
+        const kategoriMatch = m.kategori?.toLowerCase().includes(q);
+        const attrMatch = Object.values(m.atribut_tambahan || {}).some((val) =>
+          String(val).toLowerCase().includes(q),
+        );
+        searchMatch = nameMatch || kategoriMatch || attrMatch;
+      }
 
-    return categoryMatch && searchMatch;
-  });
+      return categoryMatch && searchMatch;
+    },
+  );
 
   return (
     <div
@@ -1702,25 +1771,41 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             )}
           </div>
 
-          {authKey && userRole === "admin" && (
-            <button
-              onClick={() => setShowExplore(!showExplore)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                background: "#f4f6f9",
-                border: "1px solid #eaeaea",
-                color: "#2c3e50",
-                padding: "10px 16px",
-                borderRadius: "30px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              <Compass size={16} /> Eksplorasi
-            </button>
-          )}
+          <button
+            onClick={() => setShowExplore(!showExplore)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: showExplore ? "#007bff" : "#f4f6f9",
+              border: "1px solid #eaeaea",
+              color: showExplore ? "white" : "#2c3e50",
+              padding: "10px 16px",
+              borderRadius: "30px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            <Compass size={16} /> Eksplorasi
+          </button>
+
+          <button
+            onClick={() => setRoutingEnabled(!routingEnabled)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: routingEnabled ? "#007bff" : "#f4f6f9",
+              border: "1px solid #eaeaea",
+              color: routingEnabled ? "white" : "#2c3e50",
+              padding: "10px 16px",
+              borderRadius: "30px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            <MapPin size={16} /> Routing
+          </button>
 
           <div style={{ position: "relative" }}>
             <button
@@ -1742,9 +1827,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               }}
             >
               {authKey ? <User size={16} /> : <LogIn size={16} />}
-              {authKey ? "Admin" : "Login"}
+              {authKey ? (userName ? userName : "Menu") : "Login"}
             </button>
-            {isLoginDropdownOpen && (
+            {isLoginDropdownOpen && authKey && (
               <div
                 style={{
                   position: "absolute",
@@ -1759,81 +1844,76 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   zIndex: 1200,
                 }}
               >
-                {!authKey ? (
-                  <form onSubmit={handleLogin}>
-                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
-                      Login Admin
-                    </h4>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Email..."
-                      style={{
-                        width: "100%",
-                        padding: "12px",
-                        marginBottom: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "6px",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password..."
-                      style={{
-                        width: "100%",
-                        padding: "12px",
-                        marginBottom: "15px",
-                        border: "1px solid #ddd",
-                        borderRadius: "6px",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                    <button
-                      type="submit"
-                      style={{
-                        width: "100%",
-                        padding: "12px",
-                        background: "#3498db",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      IZINKAN AKSES
-                    </button>
-                  </form>
-                ) : (
-                  <div>
-                    <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
-                      Menu Admin
-                    </h4>
-                    <button
-                      onClick={handleLogout}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "8px",
-                        padding: "12px",
-                        background: "#e74c3c",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      <LogOut size={16} /> LOGOUT
-                    </button>
-                  </div>
-                )}
+                <div>
+                  <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
+                    Menu {userRole === "admin" ? "Admin" : "User"}
+                  </h4>
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      padding: "12px",
+                      background: "#e74c3c",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    <LogOut size={16} /> LOGOUT
+                  </button>
+                </div>
+              </div>
+            )}
+            {isLoginDropdownOpen && !authKey && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: "10px",
+                  background: "#fff",
+                  borderRadius: "8px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+                  width: "280px",
+                  padding: "20px",
+                  zIndex: 1200,
+                }}
+              >
+                <div style={{ textAlign: "center" }}>
+                  <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
+                    Akses Dibatasi
+                  </h4>
+                  <p
+                    style={{
+                      margin: "0 0 15px 0",
+                      color: "#666",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Anda perlu login untuk mengakses fitur peta.
+                  </p>
+                  <button
+                    onClick={() => navigate("/login")}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      background: "#3498db",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Pergi ke Login
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2050,7 +2130,19 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   position={[pos.lat, pos.lng]}
                   icon={icon}
                   eventHandlers={{
-                    click: () => setActiveMarkerId(pos.id),
+                    click: () => {
+                      if (routingEnabled) {
+                        if (routingStep === 0 || routingStep === 1) {
+                          setStartPoint([pos.lat, pos.lng]);
+                          setRoutingStep(2);
+                        } else if (routingStep === 2) {
+                          setEndPoint([pos.lat, pos.lng]);
+                          setRoutingStep(0);
+                        }
+                      } else {
+                        setActiveMarkerId(pos.id);
+                      }
+                    },
                   }}
                 >
                   <Popup onClose={() => setActiveMarkerId(null)}>
@@ -2166,8 +2258,18 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             })}
           </MarkerClusterGroup>
 
-          {/* Route polyline jika ada */}
-          {routeTarget && userLocation && (
+          {/* Routing */}
+          {routingEnabled && startPoint && endPoint && (
+            <Polyline
+              positions={[startPoint, endPoint]}
+              color="#FF0000"
+              weight={4}
+              opacity={0.8}
+            />
+          )}
+
+          {/* Legacy route polyline jika ada */}
+          {!routingEnabled && routeTarget && userLocation && (
             <Polyline
               positions={[userLocation, [routeTarget.lat, routeTarget.lng]]}
               color="#FF0000"
@@ -2215,52 +2317,119 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   Klik nama untuk fokus ke marker dan rute.
                 </p>
               </div>
-              <button
-                onClick={() => setShowExplore(false)}
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                  style={{
+                    border: "none",
+                    background: "#007bff",
+                    color: "white",
+                    borderRadius: "8px",
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                  }}
+                >
+                  <Filter size={14} />
+                </button>
+                <button
+                  onClick={() => setShowExplore(false)}
+                  style={{
+                    border: "none",
+                    background: "#e74c3c",
+                    color: "white",
+                    borderRadius: "8px",
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+            {isFilterDropdownOpen && (
+              <div
                 style={{
-                  border: "none",
-                  background: "#e74c3c",
-                  color: "white",
-                  borderRadius: "12px",
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
+                  marginBottom: "14px",
+                  padding: "12px",
+                  background: "#f8f9fa",
+                  borderRadius: "8px",
+                  border: "1px solid #e9ecef",
                 }}
               >
-                Tutup
-              </button>
-            </div>
+                <h4 style={{ margin: "0 0 10px 0", fontSize: "14px" }}>
+                  Filter Kategori
+                </h4>
+                {kategoriKesehatan.map((kat) => (
+                  <label
+                    key={kat}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "6px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filtersExplore[kat]}
+                      onChange={(e) =>
+                        setFiltersExplore((prev) => ({
+                          ...prev,
+                          [kat]: e.target.checked,
+                        }))
+                      }
+                      style={{ width: "14px", height: "14px" }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        color: "#495057",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {kat}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
             {exploreMarkers.length === 0 ? (
               <p style={{ margin: 0, color: "#555" }}>
                 Memuat marker eksplorasi...
               </p>
             ) : (
-              exploreMarkers.map((point) => (
-                <div
-                  key={`explore-${point.id}`}
-                  onClick={() => {
-                    setActiveMarkerId(point.id);
-                    setRouteTarget(point);
-                    setShowExplore(false);
-                    if (mapInstance) {
-                      mapInstance.flyTo([point.lat, point.lng], 16, {
-                        animate: true,
-                        duration: 1.3,
-                      });
-                    }
-                  }}
-                  style={{
-                    cursor: "pointer",
-                    borderBottom: "1px solid #e0e0e0",
-                    padding: "12px 0",
-                  }}
-                >
-                  <strong>{point.name}</strong>
-                  <div style={{ fontSize: "12px", color: "#626262" }}>
-                    {point.kategori} — {point.alamat}
+              exploreMarkers
+                .filter((point) => filtersExplore[point.kategori])
+                .map((point) => (
+                  <div
+                    key={`explore-${point.id}`}
+                    onClick={() => {
+                      setActiveMarkerId(point.id);
+                      setRouteTarget(point);
+                      setShowExplore(false);
+                      if (mapInstance) {
+                        mapInstance.flyTo([point.lat, point.lng], 16, {
+                          animate: true,
+                          duration: 1.3,
+                        });
+                      }
+                    }}
+                    style={{
+                      cursor: "pointer",
+                      borderBottom: "1px solid #e0e0e0",
+                      padding: "12px 0",
+                    }}
+                  >
+                    <strong>{point.name}</strong>
+                    <div style={{ fontSize: "12px", color: "#626262" }}>
+                      {point.kategori} — {point.alamat}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
         )}
