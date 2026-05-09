@@ -1659,7 +1659,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               {authKey
                 ? userRole === "admin"
                   ? "Admin Mode"
-                  : "User Mode"
+                  : "Temukan Layanan Kesehatan Anda"
                 : "👤 Public"}
             </p>
           </div>
