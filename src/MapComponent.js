@@ -254,6 +254,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [selectedKategori, setSelectedKategori] = useState("Apotek");
   const [customName, setCustomName] = useState("");
   const [dynamicAttrs, setDynamicAttrs] = useState({});
+  const [isPublic, setIsPublic] = useState(true);
   const [filters, setFilters] = useState(
     kategoriKesehatan.reduce((acc, kat) => ({ ...acc, [kat]: true }), {}),
   );
@@ -275,6 +276,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       atribut_tambahan: point.atribut_tambahan || {},
       user_id: point.user_id,
       pemilik: point.pemilik?.username || null,
+      is_public: point.is_public !== undefined ? point.is_public : true,
     });
 
     const fetchCategories = async () => {
@@ -391,6 +393,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       const locationName = data.display_name || "Lokasi tidak diketahui";
       setCustomName("");
       setDynamicAttrs({});
+      setIsPublic(true);
       setModalData({ isEdit: false, lat, lng, defaultAddress: locationName });
     } catch (err) {
       setCustomName("");
@@ -410,6 +413,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     setCustomName(pos.name);
     setSelectedKategori(pos.kategori);
     setDynamicAttrs(pos.atribut_tambahan || {});
+    setIsPublic(pos.is_public !== undefined ? pos.is_public : true);
     setModalData({
       isEdit: true,
       id: pos.id,
@@ -440,6 +444,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       longitude: modalData.lng,
       kategori_id: selectedCategory.id,
       atribut_tambahan: dynamicAttrs,
+      is_public: isPublic,
     };
 
     try {
@@ -475,6 +480,10 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           atribut_tambahan: returnedPoint.atribut_tambahan || dynamicAttrs,
           user_id: returnedPoint.user_id || currentUserId,
           pemilik: returnedPoint.pemilik?.username || null,
+          is_public:
+            returnedPoint.is_public !== undefined
+              ? returnedPoint.is_public
+              : isPublic,
         };
 
         if (modalData.isEdit) {
@@ -486,6 +495,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         }
         setModalData(null);
         setDynamicAttrs({});
+        setIsPublic(true);
       } else {
         alert("❌ Gagal: " + result.message);
       }
@@ -1400,6 +1410,25 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               ))}
             </select>
 
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "15px",
+                fontSize: "14px",
+                fontWeight: "bold",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                style={{ width: "18px", height: "18px" }}
+              />
+              Tampilkan titik ini ke publik
+            </label>
+
             {renderDynamicFields()}
 
             <div
@@ -1414,6 +1443,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 onClick={() => {
                   setModalData(null);
                   setDynamicAttrs({});
+                  setIsPublic(true);
                 }}
                 style={{
                   padding: "10px 15px",

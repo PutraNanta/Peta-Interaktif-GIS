@@ -1,20 +1,34 @@
-'use strict';
-const { Model } = require('sequelize');
+"use strict";
+const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class ObjectPoint extends Model {
     static associate(models) {
-      ObjectPoint.belongsTo(models.User, { foreignKey: 'user_id', as: 'pemilik' });
-      ObjectPoint.belongsTo(models.KategoriKesehatan, { foreignKey: 'kategori_id', as: 'kategori' });
+      ObjectPoint.belongsTo(models.User, {
+        foreignKey: "user_id",
+        as: "pemilik",
+      });
+      ObjectPoint.belongsTo(models.KategoriKesehatan, {
+        foreignKey: "kategori_id",
+        as: "kategori",
+      });
     }
   }
-  ObjectPoint.init({
-    nama: { type: DataTypes.STRING, allowNull: false },
-    alamat: { type: DataTypes.TEXT },
-    latitude: { type: DataTypes.DOUBLE, allowNull: false },
-    longitude: { type: DataTypes.DOUBLE, allowNull: false },
-    kategori_id: { type: DataTypes.INTEGER, allowNull: true },
-    atribut_tambahan: { type: DataTypes.JSON, allowNull: true },
-    user_id: { type: DataTypes.INTEGER, allowNull: true }
-  }, { sequelize, modelName: 'ObjectPoint' });
+  ObjectPoint.init(
+    {
+      nama: { type: DataTypes.STRING, allowNull: false },
+      alamat: { type: DataTypes.TEXT },
+      latitude: { type: DataTypes.DOUBLE, allowNull: false },
+      longitude: { type: DataTypes.DOUBLE, allowNull: false },
+      kategori_id: { type: DataTypes.INTEGER, allowNull: true },
+      atribut_tambahan: { type: DataTypes.JSON, allowNull: true },
+      is_public: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      user_id: { type: DataTypes.INTEGER, allowNull: true },
+    },
+    { sequelize, modelName: "ObjectPoint" },
+  );
   return ObjectPoint;
 };
