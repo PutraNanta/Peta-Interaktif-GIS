@@ -207,7 +207,65 @@ function UserLocationMarker() {
   );
 }
 
-// Routing placeholder (using polyline for now)
+// Fetch route from OSRM (follows actual roads)
+async function fetchOSRMRoute(from, to) {
+  // from/to: [lat, lng]
+  const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+    return null;
+  }
+  const route = data.routes[0];
+  // GeoJSON coords are [lng, lat], convert to [lat, lng] for Leaflet
+  const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+  const distanceKm = (route.distance / 1000).toFixed(1);
+  const durationMin = Math.round(route.duration / 60);
+  return { coords, distanceKm, durationMin };
+}
+
+// Component to render OSRM route polyline
+function OSRMRoute({ from, to, onRouteInfo }) {
+  const [routeCoords, setRouteCoords] = useState(null);
+
+  useEffect(() => {
+    if (!from || !to) {
+      setRouteCoords(null);
+      return;
+    }
+    let cancelled = false;
+    fetchOSRMRoute(from, to).then((result) => {
+      if (cancelled) return;
+      if (result) {
+        setRouteCoords(result.coords);
+        if (onRouteInfo) onRouteInfo({ distanceKm: result.distanceKm, durationMin: result.durationMin });
+      } else {
+        // Fallback to straight line if OSRM fails
+        setRouteCoords([from, to]);
+        if (onRouteInfo) onRouteInfo(null);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setRouteCoords([from, to]);
+        if (onRouteInfo) onRouteInfo(null);
+      }
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from?.[0], from?.[1], to?.[0], to?.[1]]);
+
+  if (!routeCoords) return null;
+
+  return (
+    <Polyline
+      positions={routeCoords}
+      color="#1a73e8"
+      weight={5}
+      opacity={0.85}
+      dashArray={null}
+    />
+  );
+}
 
 // ===== MAIN COMPONENT =====
 export default function MapComponent({ isAdminMode: _isAdminMode }) {
@@ -289,6 +347,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [startPoint, setStartPoint] = useState(null);
   const [endPoint, setEndPoint] = useState(null);
   const [routingStep, setRoutingStep] = useState(0); // 0: off, 1: select start, 2: select end
+  const [routeInfo, setRouteInfo] = useState(null); // { distanceKm, durationMin }
+  const [legacyRouteInfo, setLegacyRouteInfo] = useState(null); // for "Rute ke Sini" button
 
   // Normalize point data
   const normalizePoint = (point) => ({
@@ -386,6 +446,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       setStartPoint(null);
       setEndPoint(null);
       setRoutingStep(0);
+      setRouteInfo(null);
     }
   }, [routingEnabled]);
 
@@ -1790,7 +1851,11 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </button>
 
           <button
-            onClick={() => setRoutingEnabled(!routingEnabled)}
+            onClick={() => {
+              const newState = !routingEnabled;
+              setRoutingEnabled(newState);
+              if (newState) setRoutingStep(1);
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -2051,6 +2116,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               onClick={(e) => {
                 e.stopPropagation();
                 setRouteTarget(null);
+                setLegacyRouteInfo(null);
               }}
               style={{
                 display: "flex",
@@ -2071,6 +2137,126 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             </button>
           )}
         </div>
+
+        {/* Panel Info Rute (Routing Mode) */}
+        {routingEnabled && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100px",
+              left: "15px",
+              zIndex: 1100,
+              background: "#fff",
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              padding: "14px 18px",
+              minWidth: "240px",
+              maxWidth: "300px",
+            }}
+          >
+            <div style={{ fontWeight: "bold", fontSize: "14px", marginBottom: "8px", color: "#1a73e8" }}>
+              🗺️ Mode Routing
+            </div>
+            {!startPoint && (
+              <div style={{ fontSize: "13px", color: "#555" }}>
+                👆 Klik marker <b>titik awal</b>
+              </div>
+            )}
+            {startPoint && !endPoint && (
+              <div style={{ fontSize: "13px", color: "#555" }}>
+                ✅ Titik awal dipilih<br />
+                👆 Klik marker <b>tujuan</b>
+              </div>
+            )}
+            {startPoint && endPoint && !routeInfo && (
+              <div style={{ fontSize: "13px", color: "#555" }}>
+                ⏳ Menghitung rute...
+              </div>
+            )}
+            {startPoint && endPoint && routeInfo && (
+              <div style={{ fontSize: "13px" }}>
+                <div style={{ color: "#27ae60", fontWeight: "bold", marginBottom: "4px" }}>
+                  ✅ Rute ditemukan
+                </div>
+                <div>📏 Jarak: <b>{routeInfo.distanceKm} km</b></div>
+                <div>⏱️ Estimasi: <b>~{routeInfo.durationMin} menit</b></div>
+              </div>
+            )}
+            {startPoint && endPoint && routeInfo === null && (
+              <div style={{ fontSize: "13px", color: "#e74c3c" }}>
+                ⚠️ Rute tidak ditemukan, menampilkan garis lurus
+              </div>
+            )}
+            {(startPoint || endPoint) && (
+              <button
+                onClick={() => {
+                  setStartPoint(null);
+                  setEndPoint(null);
+                  setRoutingStep(1);
+                  setRouteInfo(null);
+                }}
+                style={{
+                  marginTop: "10px",
+                  padding: "6px 12px",
+                  background: "#e74c3c",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                🔄 Reset Titik
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Panel Info Rute Legacy ("Rute ke Sini") */}
+        {!routingEnabled && routeTarget && userLocation && legacyRouteInfo && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100px",
+              left: "15px",
+              zIndex: 1100,
+              background: "#fff",
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              padding: "14px 18px",
+              minWidth: "240px",
+              maxWidth: "300px",
+            }}
+          >
+            <div style={{ fontWeight: "bold", fontSize: "14px", marginBottom: "8px", color: "#1a73e8" }}>
+              🗺️ Rute ke {routeTarget.name}
+            </div>
+            <div style={{ fontSize: "13px" }}>
+              <div>📏 Jarak: <b>{legacyRouteInfo.distanceKm} km</b></div>
+              <div>⏱️ Estimasi: <b>~{legacyRouteInfo.durationMin} menit</b></div>
+            </div>
+            <button
+              onClick={() => {
+                setRouteTarget(null);
+                setLegacyRouteInfo(null);
+              }}
+              style={{
+                marginTop: "10px",
+                padding: "6px 12px",
+                background: "#e74c3c",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "bold",
+              }}
+            >
+              ✖ Hapus Rute
+            </button>
+          </div>
+        )}
 
         {/* PETA */}
         <MapContainer
@@ -2258,23 +2444,21 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             })}
           </MarkerClusterGroup>
 
-          {/* Routing */}
+          {/* Routing via OSRM (mengikuti jalan) */}
           {routingEnabled && startPoint && endPoint && (
-            <Polyline
-              positions={[startPoint, endPoint]}
-              color="#FF0000"
-              weight={4}
-              opacity={0.8}
+            <OSRMRoute
+              from={startPoint}
+              to={endPoint}
+              onRouteInfo={(info) => setRouteInfo(info)}
             />
           )}
 
-          {/* Legacy route polyline jika ada */}
+          {/* Legacy route "Rute ke Sini" dari popup marker */}
           {!routingEnabled && routeTarget && userLocation && (
-            <Polyline
-              positions={[userLocation, [routeTarget.lat, routeTarget.lng]]}
-              color="#FF0000"
-              weight={3}
-              opacity={0.8}
+            <OSRMRoute
+              from={userLocation}
+              to={[routeTarget.lat, routeTarget.lng]}
+              onRouteInfo={(info) => setLegacyRouteInfo(info)}
             />
           )}
         </MapContainer>
