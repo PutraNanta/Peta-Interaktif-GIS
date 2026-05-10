@@ -327,6 +327,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [exploreMarkers, setExploreMarkers] = useState([]);
   const [activeView, setActiveView] = useState("map"); // "map" or "table"
   const [approvedMarkers, setApprovedMarkers] = useState([]);
+  // State untuk modal penolakan admin
+  const [rejectModal, setRejectModal] = useState(null); // { markerId } | null
+  const [rejectAlasan, setRejectAlasan] = useState("");
 
   // Check auth on mount
   useEffect(() => {
@@ -378,6 +381,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     user_id: point.user_id,
     pemilik: point.pemilik?.username || null,
     is_public: point.is_public !== undefined ? point.is_public : true,
+    status: point.status || "Pending",
+    alasan_ditolak: point.alasan_ditolak || null,
   });
 
   // Fetch categories, auth-based point list, and public explore points
@@ -501,7 +506,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   }, [showExplore]);
 
-  // Fetch approved markers for admin table view
+  // Fetch approved markers for admin table view (raw data, not normalized)
   useEffect(() => {
     if (userRole === "admin" && authKey) {
       const fetchApproved = async () => {
@@ -511,8 +516,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           });
           const result = await response.json();
           if (result.status === "success" && Array.isArray(result.data)) {
-            const approved = result.data.filter((p) => p.status === "Diterima");
-            setApprovedMarkers(approved.map(normalizePoint));
+            // Simpan raw data agar tabel bisa akses nama, kategori.nama_kategori, pemilik.username
+            setApprovedMarkers(result.data.filter((p) => p.status === "Diterima"));
           }
         } catch (error) {
           console.error("Fetch Approved Error:", error);
@@ -663,14 +668,26 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             returnedPoint.is_public !== undefined
               ? returnedPoint.is_public
               : isPublic,
+          status: returnedPoint.status || "Pending",
         };
 
         if (modalData.isEdit) {
           setMarkers((prev) =>
             prev.map((m) => (m.id === modalData.id ? savedMarker : m)),
           );
+          // Jika sebelumnya Rejected dan sekarang jadi Pending → beri tahu user
+          const prevMarker = markers.find((m) => m.id === modalData.id);
+          if (prevMarker?.status === "Rejected" && savedMarker.status === "Pending") {
+            alert("✅ Marker berhasil dikirim ulang dan menunggu persetujuan admin.");
+          }
         } else {
-          setMarkers((prev) => [...prev, savedMarker]);
+          // Hanya tambah ke markers jika admin (langsung Diterima) atau sudah Diterima
+          if (savedMarker.status === "Diterima") {
+            setMarkers((prev) => [...prev, savedMarker]);
+          } else {
+            // User biasa: marker Pending, beri tahu user
+            alert("✅ Marker berhasil ditambahkan dan menunggu persetujuan admin.");
+          }
         }
         setModalData(null);
         setDynamicAttrs({});
@@ -720,46 +737,66 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       );
       const result = await res.json();
       if (result.status === "success") {
-        // Update markers state
+        // Update status di markers state
         setMarkers((prev) =>
           prev.map((m) =>
             m.id === markerId ? { ...m, status: "Diterima" } : m,
           ),
         );
-        // Update approved markers
-        setApprovedMarkers((prev) =>
-          [
-            ...prev,
-            markers.find((m) => m.id === markerId && m.status === "Diterima"),
-          ].filter(Boolean),
-        );
+        // Tambahkan ke approvedMarkers (raw data dari markers state yang sudah diupdate)
+        setApprovedMarkers((prev) => {
+          const target = markers.find((m) => m.id === markerId);
+          if (!target) return prev;
+          // Konversi normalized marker ke format raw untuk tabel
+          const rawEntry = {
+            id: target.id,
+            nama: target.name,
+            alamat: target.alamat,
+            status: "Diterima",
+            kategori: { nama_kategori: target.kategori },
+            pemilik: { username: target.pemilik },
+          };
+          return [...prev, rawEntry];
+        });
       }
     } catch (err) {
       console.log(err);
     }
   };
 
-  const handleReject = async (markerId) => {
-    if (!authKey || userRole !== "admin") {
-      alert("🔒 AKSES DITOLAK.");
-      return;
-    }
+  const handleReject = (markerId) => {
+    // Buka modal untuk mengisi alasan penolakan
+    setRejectModal({ markerId });
+    setRejectAlasan("");
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!rejectModal) return;
+    const { markerId } = rejectModal;
     try {
       const res = await fetch(
         `http://localhost:5000/api/points/${markerId}/reject`,
         {
           method: "PUT",
-          headers: { Authorization: `Bearer ${authKey}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authKey}`,
+          },
+          body: JSON.stringify({ alasan_ditolak: rejectAlasan.trim() || null }),
         },
       );
       const result = await res.json();
       if (result.status === "success") {
-        // Update markers state
         setMarkers((prev) =>
           prev.map((m) =>
-            m.id === markerId ? { ...m, status: "Rejected" } : m,
+            m.id === markerId
+              ? { ...m, status: "Rejected", alasan_ditolak: rejectAlasan.trim() || null }
+              : m,
           ),
         );
+        setApprovedMarkers((prev) => prev.filter((m) => m.id !== markerId));
+        setRejectModal(null);
+        setRejectAlasan("");
       }
     } catch (err) {
       console.log(err);
@@ -894,11 +931,19 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     setSearchQuery(res.display_name);
   };
 
-  // Filter markers by kategori and search
+  // Filter markers by kategori, search, dan status
   const displayedMarkers = (showExplore ? exploreMarkers : markers).filter(
     (m) => {
       const currentFilters = showExplore ? filtersExplore : filters;
       const categoryMatch = currentFilters[m.kategori] !== false;
+
+      // Status filter: admin lihat semua, user biasa hanya lihat Diterima atau milik sendiri
+      let statusMatch = true;
+      if (userRole !== "admin") {
+        statusMatch =
+          m.status === "Diterima" ||
+          String(m.user_id) === String(currentUserId);
+      }
 
       let searchMatch = true;
       if (searchQuery.trim().length > 0) {
@@ -911,7 +956,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         searchMatch = nameMatch || kategoriMatch || attrMatch;
       }
 
-      return categoryMatch && searchMatch;
+      return categoryMatch && statusMatch && searchMatch;
     },
   );
 
@@ -934,6 +979,84 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           background-color: #27ae60 !important;
         }
       `}</style>
+
+      {/* MODAL REJECT — Admin isi alasan penolakan */}
+      {rejectModal && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.6)",
+          zIndex: 3000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+          <div style={{
+            background: "#fff",
+            borderRadius: "12px",
+            padding: "28px",
+            width: "420px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+          }}>
+            <h3 style={{ margin: "0 0 6px 0", color: "#c0392b", display: "flex", alignItems: "center", gap: "8px" }}>
+              ❌ Tolak Marker
+            </h3>
+            <p style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#666" }}>
+              Isi alasan penolakan agar user dapat memperbaiki markernya.
+            </p>
+            <label style={{ fontSize: "12px", fontWeight: "bold", color: "#555", display: "block", marginBottom: "6px" }}>
+              Alasan Penolakan <span style={{ color: "#999", fontWeight: "normal" }}>(opsional)</span>
+            </label>
+            <textarea
+              value={rejectAlasan}
+              onChange={(e) => setRejectAlasan(e.target.value)}
+              placeholder="Contoh: Nama lokasi tidak sesuai, koordinat tidak tepat, kategori salah..."
+              rows={4}
+              style={{
+                width: "100%",
+                padding: "10px",
+                boxSizing: "border-box",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "13px",
+                resize: "vertical",
+                fontFamily: "sans-serif",
+              }}
+            />
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
+              <button
+                onClick={() => { setRejectModal(null); setRejectAlasan(""); }}
+                style={{
+                  padding: "10px 18px",
+                  background: "#ccc",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  fontSize: "13px",
+                }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleRejectConfirm}
+                style={{
+                  padding: "10px 18px",
+                  background: "#e74c3c",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  fontSize: "13px",
+                }}
+              >
+                ❌ Konfirmasi Tolak
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL INPUT */}
       {modalData && (
@@ -1868,6 +1991,55 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                             Rute ke Sini
                           </button>
                         )}
+
+                        {/* Badge status untuk marker Pending/Rejected */}
+                        {pos.status && pos.status !== "Diterima" && (
+                          <div style={{ marginBottom: "8px" }}>
+                            <span style={{
+                              display: "inline-block",
+                              background: pos.status === "Pending" ? "#f39c12" : "#e74c3c",
+                              color: "white",
+                              padding: "3px 10px",
+                              borderRadius: "10px",
+                              fontSize: "11px",
+                              fontWeight: "bold",
+                            }}>
+                              {pos.status === "Pending" ? "⏳ Menunggu Persetujuan" : "❌ Ditolak"}
+                            </span>
+                            {/* Tampilkan alasan penolakan untuk pemilik marker */}
+                            {pos.status === "Rejected" && pos.alasan_ditolak &&
+                              String(pos.user_id) === String(currentUserId) && (
+                              <div style={{
+                                marginTop: "6px",
+                                padding: "8px 10px",
+                                background: "#fff5f5",
+                                border: "1px solid #ffcccc",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                                color: "#c0392b",
+                              }}>
+                                <b>Alasan penolakan:</b><br />
+                                {pos.alasan_ditolak}
+                              </div>
+                            )}
+                            {/* Alasan untuk admin */}
+                            {pos.status === "Rejected" && pos.alasan_ditolak &&
+                              userRole === "admin" && (
+                              <div style={{
+                                marginTop: "6px",
+                                padding: "8px 10px",
+                                background: "#fff5f5",
+                                border: "1px solid #ffcccc",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                                color: "#c0392b",
+                              }}>
+                                <b>Alasan:</b> {pos.alasan_ditolak}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {authKey && (
                           <div
                             style={{
@@ -1908,6 +2080,44 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                             </button>
                           </div>
                         )}
+
+                        {/* Tombol Approve/Reject untuk admin */}
+                        {userRole === "admin" && pos.status === "Pending" && (
+                          <div style={{ marginTop: "8px", display: "flex", gap: "5px" }}>
+                            <button
+                              onClick={() => handleApprove(pos.id)}
+                              style={{
+                                flex: 1,
+                                padding: "6px",
+                                background: "#27ae60",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              ✅ Setujui
+                            </button>
+                            <button
+                              onClick={() => handleReject(pos.id)}
+                              style={{
+                                flex: 1,
+                                padding: "6px",
+                                background: "#c0392b",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              ❌ Tolak
+                            </button>
+                          </div>
+                        )}
                       </Popup>
                     </Marker>
                   );
@@ -1944,9 +2154,25 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               overflowY: "auto",
             }}
           >
-            <h2 style={{ marginBottom: "20px", color: "#333" }}>
-              Tabel Marker yang Disetujui ({approvedMarkers.length} entri)
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+              <h2 style={{ margin: 0, color: "#333" }}>
+                📋 Tabel Marker Disetujui ({approvedMarkers.length} entri)
+              </h2>
+              <button
+                onClick={() => setActiveView("map")}
+                style={{
+                  padding: "8px 16px",
+                  background: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                ← Kembali ke Peta
+              </button>
+            </div>
             <table
               style={{
                 width: "100%",
@@ -1957,22 +2183,13 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
               }}
             >
-              <thead
-                style={{
-                  background: "#4a5568",
-                  color: "#fff",
-                }}
-              >
+              <thead style={{ background: "#4a5568", color: "#fff" }}>
                 <tr>
                   <th style={{ padding: "12px", textAlign: "left" }}>No</th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Nama</th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>
-                    Kategori
-                  </th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>Kategori</th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Alamat</th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>
-                    Pemilik
-                  </th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>Pemilik</th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
                 </tr>
               </thead>
@@ -1981,11 +2198,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   <tr>
                     <td
                       colSpan="6"
-                      style={{
-                        padding: "40px",
-                        textAlign: "center",
-                        color: "#888",
-                      }}
+                      style={{ padding: "40px", textAlign: "center", color: "#888" }}
                     >
                       Belum ada marker yang disetujui.
                     </td>
@@ -1994,36 +2207,33 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   approvedMarkers.map((marker, index) => (
                     <tr
                       key={marker.id}
-                      style={{
-                        borderBottom: "1px solid #eee",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setActiveMarkerId(marker.id)}
+                      style={{ borderBottom: "1px solid #eee" }}
                     >
                       <td style={{ padding: "12px" }}>{index + 1}</td>
                       <td style={{ padding: "12px", fontWeight: "bold" }}>
                         {marker.nama}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        {marker.kategori?.nama_kategori}
+                        {marker.kategori?.nama_kategori || "-"}
                       </td>
                       <td style={{ padding: "12px" }}>
                         {marker.alamat || "-"}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        {marker.pemilik?.username}
+                        {marker.pemilik?.username || "-"}
                       </td>
                       <td style={{ padding: "12px" }}>
                         <span
                           style={{
-                            background: "#2ecc71",
+                            background: "#27ae60",
                             color: "white",
                             padding: "4px 8px",
                             borderRadius: "4px",
                             fontSize: "12px",
+                            fontWeight: "bold",
                           }}
                         >
-                          {marker.status}
+                          ✅ {marker.status}
                         </span>
                       </td>
                     </tr>

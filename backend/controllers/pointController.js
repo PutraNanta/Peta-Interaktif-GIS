@@ -21,6 +21,11 @@ exports.getAllPoints = async (req, res) => {
     const points = await ObjectPoint.findAll({
       where,
       include,
+      attributes: [
+        "id", "nama", "alamat", "latitude", "longitude",
+        "kategori_id", "atribut_tambahan", "is_public",
+        "status", "alasan_ditolak", "user_id", "createdAt", "updatedAt",
+      ],
       order: [["createdAt", "DESC"]],
     });
     res.json({ status: "success", data: points });
@@ -114,6 +119,13 @@ exports.updatePoint = async (req, res) => {
       atribut_tambahan,
       is_public,
     } = req.body;
+
+    // Jika user biasa mengedit marker yang Rejected → reset ke Pending & hapus alasan
+    const statusUpdate =
+      req.user.role !== "admin" && point.status === "Rejected"
+        ? { status: "Pending", alasan_ditolak: null }
+        : {};
+
     await point.update({
       nama,
       alamat,
@@ -122,8 +134,16 @@ exports.updatePoint = async (req, res) => {
       kategori_id,
       atribut_tambahan,
       is_public: is_public !== undefined ? is_public : point.is_public,
+      ...statusUpdate,
     });
-    res.json({ status: "success", message: "Point diperbarui", data: point });
+
+    const full = await ObjectPoint.findByPk(point.id, {
+      include: [
+        { model: KategoriKesehatan, as: "kategori" },
+        { model: User, as: "pemilik", attributes: ["username"] },
+      ],
+    });
+    res.json({ status: "success", message: "Point diperbarui", data: full });
   } catch (err) {
     res.status(500).json({ message: "Server Error: " + err.message });
   }
@@ -171,7 +191,11 @@ exports.rejectPoint = async (req, res) => {
     if (!point)
       return res.status(404).json({ message: "Point tidak ditemukan" });
 
-    await point.update({ status: "Rejected" });
+    const { alasan_ditolak } = req.body;
+    await point.update({
+      status: "Rejected",
+      alasan_ditolak: alasan_ditolak || null,
+    });
     res.json({ status: "success", message: "Point ditolak" });
   } catch (err) {
     res.status(500).json({ message: "Server Error: " + err.message });
