@@ -26,6 +26,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: true,
       },
+      status: {
+        type: DataTypes.ENUM("Pending", "Diterima", "Rejected"),
+        allowNull: false,
+        defaultValue: "Pending",
+      },
       user_id: { type: DataTypes.INTEGER, allowNull: true },
     },
     { sequelize, modelName: "ObjectPoint" },

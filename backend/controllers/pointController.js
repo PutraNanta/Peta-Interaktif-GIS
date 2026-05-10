@@ -1,9 +1,15 @@
 const { ObjectPoint, KategoriKesehatan, User } = require("../models");
+const { Op } = require("sequelize");
 
-// GET /api/points  (user → milik sendiri; admin → semua)
+// GET /api/points  (user → milik sendiri atau Diterima; admin → semua)
 exports.getAllPoints = async (req, res) => {
   try {
-    const where = req.user.role === "admin" ? {} : { user_id: req.user.id };
+    let where = {};
+    if (req.user.role !== "admin") {
+      where = {
+        [Op.or]: [{ user_id: req.user.id }, { status: "Diterima" }],
+      };
+    }
     const include = [
       {
         model: KategoriKesehatan,
@@ -23,11 +29,11 @@ exports.getAllPoints = async (req, res) => {
   }
 };
 
-// GET /api/points/explore  (publik – hanya marker publik)
+// GET /api/points/explore  (publik – hanya marker Diterima dan publik)
 exports.explorePoints = async (req, res) => {
   try {
     const points = await ObjectPoint.findAll({
-      where: { is_public: true },
+      where: { is_public: true, status: "Diterima" },
       include: [
         {
           model: KategoriKesehatan,
@@ -69,6 +75,7 @@ exports.createPoint = async (req, res) => {
       kategori_id,
       atribut_tambahan,
       is_public: is_public !== undefined ? is_public : true,
+      status: req.user.role === "admin" ? "Diterima" : "Pending",
       user_id: req.user.id,
     });
     const full = await ObjectPoint.findByPk(point.id, {
@@ -134,6 +141,38 @@ exports.deletePoint = async (req, res) => {
 
     await point.destroy();
     res.json({ status: "success", message: "Point dihapus" });
+  } catch (err) {
+    res.status(500).json({ message: "Server Error: " + err.message });
+  }
+};
+exports.approvePoint = async (req, res) => {
+  try {
+    if (req.user.role !== "admin")
+      return res.status(403).json({ message: "Akses ditolak" });
+
+    const point = await ObjectPoint.findByPk(req.params.id);
+    if (!point)
+      return res.status(404).json({ message: "Point tidak ditemukan" });
+
+    await point.update({ status: "Diterima" });
+    res.json({ status: "success", message: "Point disetujui" });
+  } catch (err) {
+    res.status(500).json({ message: "Server Error: " + err.message });
+  }
+};
+
+// PUT /api/points/:id/reject  (admin only)
+exports.rejectPoint = async (req, res) => {
+  try {
+    if (req.user.role !== "admin")
+      return res.status(403).json({ message: "Akses ditolak" });
+
+    const point = await ObjectPoint.findByPk(req.params.id);
+    if (!point)
+      return res.status(404).json({ message: "Point tidak ditemukan" });
+
+    await point.update({ status: "Rejected" });
+    res.json({ status: "success", message: "Point ditolak" });
   } catch (err) {
     res.status(500).json({ message: "Server Error: " + err.message });
   }

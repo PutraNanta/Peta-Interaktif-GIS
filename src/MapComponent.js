@@ -30,6 +30,7 @@ import {
   Pill,
   UserPlus,
   Compass,
+  Table,
 } from "lucide-react";
 import { renderToString } from "react-dom/server";
 
@@ -324,6 +325,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   );
   const [kategoriOptions, setKategoriOptions] = useState([]);
   const [exploreMarkers, setExploreMarkers] = useState([]);
+  const [activeView, setActiveView] = useState("map"); // "map" or "table"
+  const [approvedMarkers, setApprovedMarkers] = useState([]);
 
   // Check auth on mount
   useEffect(() => {
@@ -497,6 +500,27 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       fetchExplore();
     }
   }, [showExplore]);
+
+  // Fetch approved markers for admin table view
+  useEffect(() => {
+    if (userRole === "admin" && authKey) {
+      const fetchApproved = async () => {
+        try {
+          const response = await fetch("http://localhost:5000/api/points", {
+            headers: { Authorization: `Bearer ${authKey}` },
+          });
+          const result = await response.json();
+          if (result.status === "success" && Array.isArray(result.data)) {
+            const approved = result.data.filter((p) => p.status === "Diterima");
+            setApprovedMarkers(approved.map(normalizePoint));
+          }
+        } catch (error) {
+          console.error("Fetch Approved Error:", error);
+        }
+      };
+      fetchApproved();
+    }
+  }, [userRole, authKey]);
 
   // Handle login
   const handleLogin = async (e) => {
@@ -675,6 +699,67 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       const result = await res.json();
       if (result.status === "success") {
         setMarkers((prev) => prev.filter((m) => m.id !== markerId));
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const handleApprove = async (markerId) => {
+    if (!authKey || userRole !== "admin") {
+      alert("🔒 AKSES DITOLAK.");
+      return;
+    }
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/points/${markerId}/approve`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${authKey}` },
+        },
+      );
+      const result = await res.json();
+      if (result.status === "success") {
+        // Update markers state
+        setMarkers((prev) =>
+          prev.map((m) =>
+            m.id === markerId ? { ...m, status: "Diterima" } : m,
+          ),
+        );
+        // Update approved markers
+        setApprovedMarkers((prev) =>
+          [
+            ...prev,
+            markers.find((m) => m.id === markerId && m.status === "Diterima"),
+          ].filter(Boolean),
+        );
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const handleReject = async (markerId) => {
+    if (!authKey || userRole !== "admin") {
+      alert("🔒 AKSES DITOLAK.");
+      return;
+    }
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/points/${markerId}/reject`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${authKey}` },
+        },
+      );
+      const result = await res.json();
+      if (result.status === "success") {
+        // Update markers state
+        setMarkers((prev) =>
+          prev.map((m) =>
+            m.id === markerId ? { ...m, status: "Rejected" } : m,
+          ),
+        );
       }
     } catch (err) {
       console.log(err);
@@ -1236,23 +1321,47 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             )}
           </div>
 
-          <button
-            onClick={() => setShowExplore(!showExplore)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              background: showExplore ? "#007bff" : "#f4f6f9",
-              border: "1px solid #eaeaea",
-              color: showExplore ? "white" : "#2c3e50",
-              padding: "10px 16px",
-              borderRadius: "30px",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
-          >
-            <Compass size={16} /> Eksplorasi
-          </button>
+          {userRole !== "admin" && (
+            <button
+              onClick={() => setShowExplore(!showExplore)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: showExplore ? "#007bff" : "#f4f6f9",
+                border: "1px solid #eaeaea",
+                color: showExplore ? "white" : "#2c3e50",
+                padding: "10px 16px",
+                borderRadius: "30px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              <Compass size={16} /> Eksplorasi
+            </button>
+          )}
+
+          {userRole === "admin" && (
+            <button
+              onClick={() =>
+                setActiveView(activeView === "map" ? "table" : "map")
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: activeView === "table" ? "#007bff" : "#f4f6f9",
+                border: "1px solid #eaeaea",
+                color: activeView === "table" ? "white" : "#2c3e50",
+                padding: "10px 16px",
+                borderRadius: "30px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              <Table size={16} /> Tabel
+            </button>
+          )}
 
           <div style={{ position: "relative" }}>
             <button
@@ -1613,210 +1722,317 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </div>
         )}
 
-        {/* PETA */}
-        <MapContainer
-          center={[-8.65, 115.2167]}
-          zoom={15}
-          minZoom={9}
-          maxZoom={18}
-          maxBounds={baliBounds}
-          whenCreated={setMapInstance}
-          style={{
-            height: "100%",
-            width: "100%",
-            cursor: isEditMode ? "crosshair" : "grab",
-          }}
-        >
-          <MapFocus
-            activeMarkerId={activeMarkerId}
-            markers={displayedMarkers}
-          />
-          <UserLocationMarker />
+        {activeView === "map" && (
+          <>
+            {/* PETA */}
+            <MapContainer
+              center={[-8.65, 115.2167]}
+              zoom={15}
+              minZoom={9}
+              maxZoom={18}
+              maxBounds={baliBounds}
+              whenCreated={setMapInstance}
+              style={{
+                height: "100%",
+                width: "100%",
+                cursor: isEditMode ? "crosshair" : "grab",
+              }}
+            >
+              <MapFocus
+                activeMarkerId={activeMarkerId}
+                markers={displayedMarkers}
+              />
+              <UserLocationMarker />
 
-          {tileLayer === "street" ? (
-            <TileLayer
-              attribution="© OSM"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-          ) : (
-            <TileLayer
-              attribution="© Esri"
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            />
-          )}
+              {tileLayer === "street" ? (
+                <TileLayer
+                  attribution="© OSM"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+              ) : (
+                <TileLayer
+                  attribution="© Esri"
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                />
+              )}
 
-          {authKey && (
-            <LocationMarker
-              isEditMode={isEditMode}
-              authKey={authKey}
-              onMapClick={handleMapClick}
-              clearActiveMarker={() => setActiveMarkerId(null)}
-            />
-          )}
+              {authKey && (
+                <LocationMarker
+                  isEditMode={isEditMode}
+                  authKey={authKey}
+                  onMapClick={handleMapClick}
+                  clearActiveMarker={() => setActiveMarkerId(null)}
+                />
+              )}
 
-          {/* MARKER CLUSTER */}
-          <MarkerClusterGroup>
-            {displayedMarkers.map((pos) => {
-              const markerColor = colorMap[pos.kategori] || "#3498db";
-              const isActive = activeMarkerId === pos.id;
-              const icon = createMarkerIcon(
-                markerColor,
-                pos.kategori,
-                isActive,
-              );
+              {/* MARKER CLUSTER */}
+              <MarkerClusterGroup>
+                {displayedMarkers.map((pos) => {
+                  const markerColor = colorMap[pos.kategori] || "#3498db";
+                  const isActive = activeMarkerId === pos.id;
+                  const icon = createMarkerIcon(
+                    markerColor,
+                    pos.kategori,
+                    isActive,
+                  );
 
-              return (
-                <Marker
-                  key={pos.id}
-                  position={[pos.lat, pos.lng]}
-                  icon={icon}
-                  eventHandlers={{
-                    click: () => {
-                      if (routingEnabled) {
-                        if (routingStep === 0 || routingStep === 1) {
-                          setStartPoint([pos.lat, pos.lng]);
-                          setRoutingStep(2);
-                        } else if (routingStep === 2) {
-                          setEndPoint([pos.lat, pos.lng]);
-                          setRoutingStep(0);
-                        }
-                      } else {
-                        setActiveMarkerId(pos.id);
-                      }
-                    },
-                  }}
-                >
-                  <Popup onClose={() => setActiveMarkerId(null)}>
-                    <div style={{ textAlign: "center", marginBottom: "12px" }}>
-                      <span
-                        style={{
-                          background: markerColor,
-                          color: "white",
-                          padding: "4px 12px",
-                          borderRadius: "12px",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          display: "inline-block",
-                        }}
-                      >
-                        {pos.kategori}
-                      </span>
-                    </div>
-                    <b>📍 {pos.name}</b>
-                    <br />
-                    <span style={{ fontSize: "12px", color: "#666" }}>
-                      {pos.alamat}
-                    </span>
-                    <br />
-                    <br />
-
-                    {Object.keys(pos.atribut_tambahan || {}).length > 0 && (
-                      <div
-                        style={{
-                          background: "#f8f9fa",
-                          padding: "8px",
-                          borderRadius: "6px",
-                          marginBottom: "10px",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <strong style={{ fontSize: "11px" }}>DETAIL:</strong>
+                  return (
+                    <Marker
+                      key={pos.id}
+                      position={[pos.lat, pos.lng]}
+                      icon={icon}
+                      eventHandlers={{
+                        click: () => {
+                          if (routingEnabled) {
+                            if (routingStep === 0 || routingStep === 1) {
+                              setStartPoint([pos.lat, pos.lng]);
+                              setRoutingStep(2);
+                            } else if (routingStep === 2) {
+                              setEndPoint([pos.lat, pos.lng]);
+                              setRoutingStep(0);
+                            }
+                          } else {
+                            setActiveMarkerId(pos.id);
+                          }
+                        },
+                      }}
+                    >
+                      <Popup onClose={() => setActiveMarkerId(null)}>
+                        <div
+                          style={{ textAlign: "center", marginBottom: "12px" }}
+                        >
+                          <span
+                            style={{
+                              background: markerColor,
+                              color: "white",
+                              padding: "4px 12px",
+                              borderRadius: "12px",
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              display: "inline-block",
+                            }}
+                          >
+                            {pos.kategori}
+                          </span>
+                        </div>
+                        <b>📍 {pos.name}</b>
                         <br />
-                        {Object.entries(pos.atribut_tambahan).map(
-                          ([key, val]) => (
-                            <div key={key} style={{ marginTop: "4px" }}>
-                              <b>{key}:</b> {val}
-                            </div>
-                          ),
+                        <span style={{ fontSize: "12px", color: "#666" }}>
+                          {pos.alamat}
+                        </span>
+                        <br />
+                        <br />
+
+                        {Object.keys(pos.atribut_tambahan || {}).length > 0 && (
+                          <div
+                            style={{
+                              background: "#f8f9fa",
+                              padding: "8px",
+                              borderRadius: "6px",
+                              marginBottom: "10px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <strong style={{ fontSize: "11px" }}>
+                              DETAIL:
+                            </strong>
+                            <br />
+                            {Object.entries(pos.atribut_tambahan).map(
+                              ([key, val]) => (
+                                <div key={key} style={{ marginTop: "4px" }}>
+                                  <b>{key}:</b> {val}
+                                </div>
+                              ),
+                            )}
+                          </div>
                         )}
-                      </div>
-                    )}
 
-                    {userLocation && (
-                      <button
-                        onClick={() => {
-                          setRouteTarget(pos);
-                          setActiveMarkerId(pos.id);
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "8px 10px",
-                          background: "#2ecc71",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        Rute ke Sini
-                      </button>
-                    )}
-                    {authKey && (
-                      <div
-                        style={{
-                          marginTop: "10px",
-                          display: "flex",
-                          gap: "5px",
-                        }}
-                      >
-                        <button
-                          onClick={() => handleEditClick(pos)}
+                        {userLocation && (
+                          <button
+                            onClick={() => {
+                              setRouteTarget(pos);
+                              setActiveMarkerId(pos.id);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              background: "#2ecc71",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                              fontSize: "12px",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            Rute ke Sini
+                          </button>
+                        )}
+                        {authKey && (
+                          <div
+                            style={{
+                              marginTop: "10px",
+                              display: "flex",
+                              gap: "5px",
+                            }}
+                          >
+                            <button
+                              onClick={() => handleEditClick(pos)}
+                              style={{
+                                flex: 1,
+                                padding: "6px",
+                                background: "#f39c12",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeletePoint(pos.id)}
+                              style={{
+                                flex: 1,
+                                padding: "6px",
+                                background: "#dc3545",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                              }}
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        )}
+                      </Popup>
+                    </Marker>
+                  );
+                })}
+              </MarkerClusterGroup>
+
+              {/* Routing via OSRM (mengikuti jalan) */}
+              {routingEnabled && startPoint && endPoint && (
+                <OSRMRoute
+                  from={startPoint}
+                  to={endPoint}
+                  onRouteInfo={(info) => setRouteInfo(info)}
+                />
+              )}
+
+              {/* Legacy route "Rute ke Sini" dari popup marker */}
+              {!routingEnabled && routeTarget && userLocation && (
+                <OSRMRoute
+                  from={userLocation}
+                  to={[routeTarget.lat, routeTarget.lng]}
+                  onRouteInfo={(info) => setLegacyRouteInfo(info)}
+                />
+              )}
+            </MapContainer>
+          </>
+        )}
+
+        {activeView === "table" && userRole === "admin" && (
+          <div
+            style={{
+              height: "100%",
+              padding: "20px",
+              background: "#f8f9fa",
+              overflowY: "auto",
+            }}
+          >
+            <h2 style={{ marginBottom: "20px", color: "#333" }}>
+              Tabel Marker yang Disetujui ({approvedMarkers.length} entri)
+            </h2>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                background: "#fff",
+                borderRadius: "8px",
+                overflow: "hidden",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+              }}
+            >
+              <thead
+                style={{
+                  background: "#4a5568",
+                  color: "#fff",
+                }}
+              >
+                <tr>
+                  <th style={{ padding: "12px", textAlign: "left" }}>No</th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>Nama</th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>
+                    Kategori
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>Alamat</th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>
+                    Pemilik
+                  </th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedMarkers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="6"
+                      style={{
+                        padding: "40px",
+                        textAlign: "center",
+                        color: "#888",
+                      }}
+                    >
+                      Belum ada marker yang disetujui.
+                    </td>
+                  </tr>
+                ) : (
+                  approvedMarkers.map((marker, index) => (
+                    <tr
+                      key={marker.id}
+                      style={{
+                        borderBottom: "1px solid #eee",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => setActiveMarkerId(marker.id)}
+                    >
+                      <td style={{ padding: "12px" }}>{index + 1}</td>
+                      <td style={{ padding: "12px", fontWeight: "bold" }}>
+                        {marker.nama}
+                      </td>
+                      <td style={{ padding: "12px" }}>
+                        {marker.kategori?.nama_kategori}
+                      </td>
+                      <td style={{ padding: "12px" }}>
+                        {marker.alamat || "-"}
+                      </td>
+                      <td style={{ padding: "12px" }}>
+                        {marker.pemilik?.username}
+                      </td>
+                      <td style={{ padding: "12px" }}>
+                        <span
                           style={{
-                            flex: 1,
-                            padding: "6px",
-                            background: "#f39c12",
+                            background: "#2ecc71",
                             color: "white",
-                            border: "none",
+                            padding: "4px 8px",
                             borderRadius: "4px",
-                            cursor: "pointer",
                             fontSize: "12px",
                           }}
                         >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeletePoint(pos.id)}
-                          style={{
-                            flex: 1,
-                            padding: "6px",
-                            background: "#dc3545",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    )}
-                  </Popup>
-                </Marker>
-              );
-            })}
-          </MarkerClusterGroup>
-
-          {/* Routing via OSRM (mengikuti jalan) */}
-          {routingEnabled && startPoint && endPoint && (
-            <OSRMRoute
-              from={startPoint}
-              to={endPoint}
-              onRouteInfo={(info) => setRouteInfo(info)}
-            />
-          )}
-
-          {/* Legacy route "Rute ke Sini" dari popup marker */}
-          {!routingEnabled && routeTarget && userLocation && (
-            <OSRMRoute
-              from={userLocation}
-              to={[routeTarget.lat, routeTarget.lng]}
-              onRouteInfo={(info) => setLegacyRouteInfo(info)}
-            />
-          )}
-        </MapContainer>
+                          {marker.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Toggle Edit Mode (Admin) */}
         {authKey && (
