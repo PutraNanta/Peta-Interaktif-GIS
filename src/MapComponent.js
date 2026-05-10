@@ -234,24 +234,32 @@ function OSRMRoute({ from, to, onRouteInfo }) {
       return;
     }
     let cancelled = false;
-    fetchOSRMRoute(from, to).then((result) => {
-      if (cancelled) return;
-      if (result) {
-        setRouteCoords(result.coords);
-        if (onRouteInfo) onRouteInfo({ distanceKm: result.distanceKm, durationMin: result.durationMin });
-      } else {
-        // Fallback to straight line if OSRM fails
-        setRouteCoords([from, to]);
-        if (onRouteInfo) onRouteInfo(null);
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setRouteCoords([from, to]);
-        if (onRouteInfo) onRouteInfo(null);
-      }
-    });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchOSRMRoute(from, to)
+      .then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setRouteCoords(result.coords);
+          if (onRouteInfo)
+            onRouteInfo({
+              distanceKm: result.distanceKm,
+              durationMin: result.durationMin,
+            });
+        } else {
+          // Fallback to straight line if OSRM fails
+          setRouteCoords([from, to]);
+          if (onRouteInfo) onRouteInfo(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRouteCoords([from, to]);
+          if (onRouteInfo) onRouteInfo(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from?.[0], from?.[1], to?.[0], to?.[1]]);
 
   if (!routeCoords) return null;
@@ -439,6 +447,26 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     fetchExplore();
     fetchPoints();
   }, [authKey, kategoriKesehatan]);
+
+  useEffect(() => {
+    if (!kategoriOptions.length) return;
+
+    const categoryNames = kategoriOptions.map((cat) => cat.nama_kategori);
+    setFilters((prev) => {
+      const next = {};
+      categoryNames.forEach((name) => {
+        next[name] = prev[name] !== false;
+      });
+      return next;
+    });
+    setFiltersExplore((prev) => {
+      const next = {};
+      categoryNames.forEach((name) => {
+        next[name] = prev[name] !== false;
+      });
+      return next;
+    });
+  }, [kategoriOptions]);
 
   // Reset routing when disabled
   useEffect(() => {
@@ -668,708 +696,84 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       fontSize: "12px",
       fontWeight: "bold",
       color: "#555",
+      display: "block",
+      marginBottom: "6px",
     };
 
-    const categoryColor = colorMap[selectedKategori] || "#000";
+    const selectedCategory = kategoriOptions.find(
+      (cat) => cat.nama_kategori === selectedKategori,
+    );
+    const fields = selectedCategory?.fields || [];
+    if (!fields.length) return null;
 
-    if (selectedKategori === "Rumah Sakit Umum") {
-      return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#ffebee",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #ffcdd2",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            🏥 Detail Rumah Sakit Umum
-          </h4>
-          <label style={labelStyle}>Kelas RS</label>
+    const categoryColor =
+      selectedCategory?.warna || colorMap[selectedKategori] || "#000";
+
+    const renderFieldInput = (field) => {
+      const value = dynamicAttrs[field.key] ?? "";
+      const handleChange = (newValue) =>
+        setDynamicAttrs((prev) => ({ ...prev, [field.key]: newValue }));
+
+      if (field.type === "select") {
+        return (
           <select
-            value={dynamicAttrs.kelas_rs || "C"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, kelas_rs: e.target.value })
-            }
+            value={value || field.options?.[0] || ""}
+            onChange={(e) => handleChange(e.target.value)}
             style={inputStyle}
           >
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
+            {(field.options || []).map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
           </select>
-          <label style={labelStyle}>Status</label>
-          <select
-            value={dynamicAttrs.status || "Negeri"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, status: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Negeri">Negeri</option>
-            <option value="Swasta">Swasta</option>
-          </select>
-          <label style={labelStyle}>IGD</label>
-          <select
-            value={dynamicAttrs.igd || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, igd: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Spesialisasi (pisahkan dengan koma)</label>
-          <input
-            type="text"
-            placeholder="Anak, Kandungan, Gigi, ..."
-            value={dynamicAttrs.spesialisasi || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, spesialisasi: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Fasilitas (pisahkan dengan koma)</label>
-          <input
-            type="text"
-            placeholder="ICU, NICU, Radiologi, Lab, Farmasi, Hemodialisa"
-            value={dynamicAttrs.fasilitas || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, fasilitas: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Kapasitas TT</label>
+        );
+      }
+
+      if (field.type === "number") {
+        return (
           <input
             type="number"
-            placeholder="100"
-            value={dynamicAttrs.kapasitas_tt || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, kapasitas_tt: e.target.value })
-            }
+            placeholder={field.placeholder || ""}
+            value={value}
+            onChange={(e) => handleChange(e.target.value)}
             style={inputStyle}
           />
-          <label style={labelStyle}>BPJS</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="24 Jam"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
-      );
-    }
-    if (selectedKategori === "Rumah Sakit Khusus") {
+        );
+      }
+
       return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#ffeaa7",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #fdcb6e",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            🏥 Detail Rumah Sakit Khusus
-          </h4>
-          <label style={labelStyle}>Jenis Spesialisasi</label>
-          <select
-            value={dynamicAttrs.jenis_spesialisasi || "Jiwa"}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jenis_spesialisasi: e.target.value,
-              })
-            }
-            style={inputStyle}
-          >
-            <option value="Jiwa">Jiwa</option>
-            <option value="Ibu & Anak">Ibu & Anak</option>
-            <option value="Kanker">Kanker</option>
-            <option value="Bedah">Bedah</option>
-            <option value="Gigi">Gigi</option>
-          </select>
-          <label style={labelStyle}>Status</label>
-          <select
-            value={dynamicAttrs.status || "Negeri"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, status: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Negeri">Negeri</option>
-            <option value="Swasta">Swasta</option>
-          </select>
-          <label style={labelStyle}>IGD</label>
-          <select
-            value={dynamicAttrs.igd || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, igd: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>BPJS</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="08:00 - 20:00"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
+        <input
+          type={field.type || "text"}
+          placeholder={field.placeholder || ""}
+          value={value}
+          onChange={(e) => handleChange(e.target.value)}
+          style={inputStyle}
+        />
       );
-    }
-    if (selectedKategori === "Klinik") {
-      return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#e3f2fd",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #bbdefb",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            🏥 Detail Klinik
-          </h4>
-          <label style={labelStyle}>Jenis Klinik</label>
-          <select
-            value={dynamicAttrs.jenis_klinik || "Pratama"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, jenis_klinik: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Pratama">Pratama</option>
-            <option value="Utama">Utama</option>
-          </select>
-          <label style={labelStyle}>Layanan (pisahkan dengan koma)</label>
-          <input
-            type="text"
-            placeholder="Umum, Gigi, Kecantikan, Spesialis"
-            value={dynamicAttrs.layanan || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, layanan: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Jenis Dokter</label>
-          <input
-            type="text"
-            placeholder="dr. Budi, dr. Sari, ..."
-            value={dynamicAttrs.jenis_dokter || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, jenis_dokter: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>BPJS</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="08:00 - 20:00"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Hari Buka</label>
-          <input
-            type="text"
-            placeholder="Senin - Sabtu"
-            value={dynamicAttrs.hari_buka || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, hari_buka: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
-      );
-    }
-    if (selectedKategori === "Puskesmas") {
-      return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#f1f8e9",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #c5e1a5",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            🏛️ Detail Puskesmas
-          </h4>
-          <label style={labelStyle}>Jenis</label>
-          <select
-            value={dynamicAttrs.jenis || "Induk"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, jenis: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Induk">Induk</option>
-            <option value="Pembantu">Pembantu</option>
-            <option value="Keliling">Keliling</option>
-          </select>
-          <label style={labelStyle}>Wilayah Kerja</label>
-          <input
-            type="text"
-            placeholder="Desa A, Desa B"
-            value={dynamicAttrs.wilayah_kerja || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                wilayah_kerja: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Rawat Inap</label>
-          <select
-            value={dynamicAttrs.rawat_inap || "Tidak"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, rawat_inap: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>BPJS</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Tersedia Bidan</label>
-          <select
-            value={dynamicAttrs.tersedia_bidan || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                tersedia_bidan: e.target.value,
-              })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="08:00 - 16:00"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
-      );
-    }
-    if (selectedKategori === "Apotek") {
-      return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#e0f7fa",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #b2ebf2",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            💊 Detail Apotek
-          </h4>
-          <label style={labelStyle}>Jaringan</label>
-          <select
-            value={dynamicAttrs.jaringan || "Kimia Farma"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, jaringan: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Kimia Farma">Kimia Farma</option>
-            <option value="K24">K24</option>
-            <option value="Guardian">Guardian</option>
-            <option value="Mandiri">Mandiri</option>
-            <option value="Lainnya">Lainnya</option>
-          </select>
-          <label style={labelStyle}>Apoteker</label>
-          <input
-            type="text"
-            placeholder="Apt. Budi"
-            value={dynamicAttrs.apoteker || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, apoteker: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Drive Thru</label>
-          <select
-            value={dynamicAttrs.drive_thru || "Tidak"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, drive_thru: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Buka 24 Jam</label>
-          <select
-            value={dynamicAttrs.buka_24_jam || "Tidak"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, buka_24_jam: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="08:00 - 22:00"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
-      );
-    }
-    if (selectedKategori === "Klinik Gigi") {
-      return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#fffde7",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #fff9c4",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            🦷 Detail Klinik Gigi
-          </h4>
-          <label style={labelStyle}>Layanan Gigi (pisahkan dengan koma)</label>
-          <input
-            type="text"
-            placeholder="Umum, Kawat Gigi, Implan, Estetik"
-            value={dynamicAttrs.layanan_gigi || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, layanan_gigi: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>BPJS</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Nama Dokter</label>
-          <input
-            type="text"
-            placeholder="drg. Sari"
-            value={dynamicAttrs.nama_dokter || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, nama_dokter: e.target.value })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="09:00 - 17:00"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
-      );
-    }
-    if (selectedKategori === "Bidan & Klinik Bersalin") {
-      return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#fd79a8",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #e84393",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            🤱 Detail Bidan & Klinik Bersalin
-          </h4>
-          <label style={labelStyle}>Layanan Bidan (pisahkan dengan koma)</label>
-          <input
-            type="text"
-            placeholder="Persalinan, USG, KB, Imunisasi"
-            value={dynamicAttrs.layanan_bidan || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                layanan_bidan: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>BPJS</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Buka 24 Jam</label>
-          <select
-            value={dynamicAttrs.buka_24_jam || "Tidak"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, buka_24_jam: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="08:00 - 16:00"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
-      );
-    }
-    if (selectedKategori === "Fisioterapi & Rehabilitasi") {
-      return (
-        <div
-          style={{
-            marginTop: 15,
-            background: "#a29bfe",
-            padding: 15,
-            borderRadius: 8,
-            border: "1px solid #6c5ce7",
-          }}
-        >
-          <h4 style={{ margin: 0, color: categoryColor, marginBottom: 10 }}>
-            🏋️ Detail Fisioterapi & Rehabilitasi
-          </h4>
-          <label style={labelStyle}>Spesialisasi Rehab</label>
-          <select
-            value={dynamicAttrs.spesialisasi_rehab || "Fisioterapi"}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                spesialisasi_rehab: e.target.value,
-              })
-            }
-            style={inputStyle}
-          >
-            <option value="Fisioterapi">Fisioterapi</option>
-            <option value="Napza">Napza</option>
-            <option value="Geriatri">Geriatri</option>
-          </select>
-          <label style={labelStyle}>BPJS</label>
-          <select
-            value={dynamicAttrs.bpjs || "Ya"}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, bpjs: e.target.value })
-            }
-            style={inputStyle}
-          >
-            <option value="Ya">Ya</option>
-            <option value="Tidak">Tidak</option>
-          </select>
-          <label style={labelStyle}>Jam Operasional</label>
-          <input
-            type="text"
-            placeholder="08:00 - 16:00"
-            value={dynamicAttrs.jam_operasional || ""}
-            onChange={(e) =>
-              setDynamicAttrs({
-                ...dynamicAttrs,
-                jam_operasional: e.target.value,
-              })
-            }
-            style={inputStyle}
-          />
-          <label style={labelStyle}>Telepon</label>
-          <input
-            type="text"
-            placeholder="08123456789"
-            value={dynamicAttrs.telepon || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, telepon: e.target.value })
-            }
-            style={inputStyle}
-          />
-        </div>
-      );
-    }
-    return null;
+    };
+
+    return (
+      <div
+        style={{
+          marginTop: 15,
+          background: "#f7f9fb",
+          padding: 16,
+          borderRadius: 10,
+          border: `1px solid ${categoryColor}33`,
+        }}
+      >
+        <h4 style={{ margin: 0, color: categoryColor, marginBottom: 12 }}>
+          {selectedCategory.icon_name ? "🔹" : "📋"} Detail {selectedKategori}
+        </h4>
+        {fields.map((field) => (
+          <div key={field.key} style={{ marginBottom: 10 }}>
+            <label style={labelStyle}>{field.label}</label>
+            {renderFieldInput(field)}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   // Debounce search
@@ -2132,7 +1536,14 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               maxWidth: "300px",
             }}
           >
-            <div style={{ fontWeight: "bold", fontSize: "14px", marginBottom: "8px", color: "#1a73e8" }}>
+            <div
+              style={{
+                fontWeight: "bold",
+                fontSize: "14px",
+                marginBottom: "8px",
+                color: "#1a73e8",
+              }}
+            >
               🗺️ Mode Routing
             </div>
             {!startPoint && (
@@ -2142,7 +1553,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             )}
             {startPoint && !endPoint && (
               <div style={{ fontSize: "13px", color: "#555" }}>
-                ✅ Titik awal dipilih<br />
+                ✅ Titik awal dipilih
+                <br />
                 👆 Klik marker <b>tujuan</b>
               </div>
             )}
@@ -2153,11 +1565,21 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             )}
             {startPoint && endPoint && routeInfo && (
               <div style={{ fontSize: "13px" }}>
-                <div style={{ color: "#27ae60", fontWeight: "bold", marginBottom: "4px" }}>
+                <div
+                  style={{
+                    color: "#27ae60",
+                    fontWeight: "bold",
+                    marginBottom: "4px",
+                  }}
+                >
                   ✅ Rute ditemukan
                 </div>
-                <div>📏 Jarak: <b>{routeInfo.distanceKm} km</b></div>
-                <div>⏱️ Estimasi: <b>~{routeInfo.durationMin} menit</b></div>
+                <div>
+                  📏 Jarak: <b>{routeInfo.distanceKm} km</b>
+                </div>
+                <div>
+                  ⏱️ Estimasi: <b>~{routeInfo.durationMin} menit</b>
+                </div>
               </div>
             )}
             {startPoint && endPoint && routeInfo === null && (
