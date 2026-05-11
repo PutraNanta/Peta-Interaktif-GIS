@@ -16,7 +16,6 @@ import {
   ChevronDown,
   Edit3,
   MapPin,
-  Power,
   HeartPulse,
   Search,
   Filter,
@@ -330,6 +329,10 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // State untuk modal penolakan admin
   const [rejectModal, setRejectModal] = useState(null); // { markerId } | null
   const [rejectAlasan, setRejectAlasan] = useState("");
+  // Sidebar info marker (klik marker → tampil sidebar)
+  const [sidebarMarker, setSidebarMarker] = useState(null);
+  // Field foto untuk form tambah/edit
+  const [fotoUrl, setFotoUrl] = useState("");
 
   // Check auth on mount
   useEffect(() => {
@@ -383,6 +386,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     is_public: point.is_public !== undefined ? point.is_public : true,
     status: point.status || "Pending",
     alasan_ditolak: point.alasan_ditolak || null,
+    foto_url: point.foto_url || null,
   });
 
   // Fetch categories, auth-based point list, and public explore points
@@ -406,18 +410,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     };
 
     const fetchPoints = async () => {
-      if (!authKey) {
-        // Public: tampilkan semua marker dari explore
-        const response = await fetch(
-          "http://localhost:5000/api/points/explore",
-        );
-        const result = await response.json();
-        if (result.status === "success" && Array.isArray(result.data)) {
-          setMarkers(result.data.map(normalizePoint));
-        }
-        return;
-      }
-      // Authenticated: tampilkan milik sendiri atau semua jika admin
+      if (!authKey) return; // sudah di-redirect ke login, tidak perlu fetch
+      // Authenticated: hanya milik sendiri (user) atau semua (admin)
       try {
         const response = await fetch("http://localhost:5000/api/points", {
           headers: { Authorization: `Bearer ${authKey}` },
@@ -431,20 +425,6 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       }
     };
 
-    const fetchExplore = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:5000/api/points/explore",
-        );
-        const result = await response.json();
-        if (result.status === "success" && Array.isArray(result.data)) {
-          setExploreMarkers(result.data.map(normalizePoint));
-        }
-      } catch (error) {
-        console.error("Fetch Explore Error:", error);
-      }
-    };
-
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
         setUserLocation([position.coords.latitude, position.coords.longitude]);
@@ -452,7 +432,6 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
 
     fetchCategories();
-    fetchExplore();
     fetchPoints();
   }, [authKey, kategoriKesehatan]);
 
@@ -486,7 +465,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   }, [routingEnabled]);
 
-  // Fetch explore markers when explore mode is activated
+  // Fetch explore markers hanya saat mode explore diaktifkan
   useEffect(() => {
     if (showExplore) {
       const fetchExplore = async () => {
@@ -503,6 +482,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         }
       };
       fetchExplore();
+    } else {
+      // Reset saat explore dimatikan agar tidak ada sisa data
+      setExploreMarkers([]);
     }
   }, [showExplore]);
 
@@ -569,7 +551,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     navigate("/login");
   };
 
-  // Handle map click
+  // Handle map click — buka modal tambah marker baru
   const handleMapClick = async (lat, lng) => {
     try {
       const response = await fetch(
@@ -580,10 +562,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       setCustomName("");
       setDynamicAttrs({});
       setIsPublic(true);
+      setFotoUrl("");
       setModalData({ isEdit: false, lat, lng, defaultAddress: locationName });
     } catch (err) {
       setCustomName("");
       setDynamicAttrs({});
+      setFotoUrl("");
       setModalData({
         isEdit: false,
         lat,
@@ -593,13 +577,15 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Handle edit click
+  // Handle edit click — buka modal edit
   const handleEditClick = (pos) => {
-    if (!authKey || showExplore) return;
+    if (!authKey) return;
+    setSidebarMarker(null);
     setCustomName(pos.name);
     setSelectedKategori(pos.kategori);
     setDynamicAttrs(pos.atribut_tambahan || {});
     setIsPublic(pos.is_public !== undefined ? pos.is_public : true);
+    setFotoUrl(pos.foto_url || "");
     setModalData({
       isEdit: true,
       id: pos.id,
@@ -631,6 +617,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       kategori_id: selectedCategory.id,
       atribut_tambahan: dynamicAttrs,
       is_public: isPublic,
+      foto_url: fotoUrl.trim() || null,
     };
 
     try {
@@ -671,6 +658,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               ? returnedPoint.is_public
               : isPublic,
           status: returnedPoint.status || "Pending",
+          foto_url: returnedPoint.foto_url || null,
         };
 
         if (modalData.isEdit) {
@@ -701,6 +689,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         setModalData(null);
         setDynamicAttrs({});
         setIsPublic(true);
+        setFotoUrl("");
       } else {
         alert("❌ Gagal: " + result.message);
       }
@@ -725,6 +714,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       const result = await res.json();
       if (result.status === "success") {
         setMarkers((prev) => prev.filter((m) => m.id !== markerId));
+        if (sidebarMarker?.id === markerId) setSidebarMarker(null);
       }
     } catch (err) {
       console.log(err);
@@ -832,83 +822,136 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       fontWeight: "bold",
       color: "#555",
       display: "block",
-      marginBottom: "6px",
+      marginBottom: "4px",
     };
+    const categoryColor = colorMap[selectedKategori] || "#000";
 
-    const selectedCategory = kategoriOptions.find(
-      (cat) => cat.nama_kategori === selectedKategori,
-    );
-    const fields = selectedCategory?.fields || [];
-    if (!fields.length) return null;
-
-    const categoryColor =
-      selectedCategory?.warna || colorMap[selectedKategori] || "#000";
-
-    const renderFieldInput = (field) => {
-      const value = dynamicAttrs[field.key] ?? "";
-      const handleChange = (newValue) =>
-        setDynamicAttrs((prev) => ({ ...prev, [field.key]: newValue }));
-
-      if (field.type === "select") {
-        return (
+    const Field = ({ label, name, type = "text", placeholder, options }) => (
+      <div>
+        <label style={labelStyle}>{label}</label>
+        {options ? (
           <select
-            value={value || field.options?.[0] || ""}
-            onChange={(e) => handleChange(e.target.value)}
+            value={dynamicAttrs[name] || options[0]}
+            onChange={(e) => setDynamicAttrs({ ...dynamicAttrs, [name]: e.target.value })}
             style={inputStyle}
           >
-            {(field.options || []).map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
+            {options.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
-        );
-      }
-
-      if (field.type === "number") {
-        return (
+        ) : (
           <input
-            type="number"
-            placeholder={field.placeholder || ""}
-            value={value}
-            onChange={(e) => handleChange(e.target.value)}
+            type={type}
+            placeholder={placeholder}
+            value={dynamicAttrs[name] || ""}
+            onChange={(e) => setDynamicAttrs({ ...dynamicAttrs, [name]: e.target.value })}
             style={inputStyle}
           />
-        );
-      }
-
-      return (
-        <input
-          type={field.type || "text"}
-          placeholder={field.placeholder || ""}
-          value={value}
-          onChange={(e) => handleChange(e.target.value)}
-          style={inputStyle}
-        />
-      );
-    };
-
-    return (
-      <div
-        style={{
-          marginTop: 15,
-          background: "#f7f9fb",
-          padding: 16,
-          borderRadius: 10,
-          border: `1px solid ${categoryColor}33`,
-        }}
-      >
-        <h4 style={{ margin: 0, color: categoryColor, marginBottom: 12 }}>
-          {selectedCategory.icon_name ? "🔹" : "📋"} Detail {selectedKategori}
-        </h4>
-        {fields.map((field) => (
-          <div key={field.key} style={{ marginBottom: 10 }}>
-            <label style={labelStyle}>{field.label}</label>
-            {renderFieldInput(field)}
-          </div>
-        ))}
+        )}
       </div>
     );
+
+    const wrapStyle = (bg, border) => ({
+      marginTop: 15, background: bg, padding: 15, borderRadius: 8, border: `1px solid ${border}`,
+    });
+
+    if (selectedKategori === "Rumah Sakit Umum") return (
+      <div style={wrapStyle("#ffebee", "#ffcdd2")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏥 Detail Rumah Sakit Umum</h4>
+        <Field label="Kelas RS" name="kelas_rs" options={["A","B","C","D"]} />
+        <Field label="Status" name="status_rs" options={["Negeri","Swasta"]} />
+        <Field label="IGD" name="igd" options={["Ya","Tidak"]} />
+        <Field label="Spesialisasi (pisahkan koma)" name="spesialisasi" placeholder="Anak, Kandungan, ..." />
+        <Field label="Fasilitas (pisahkan koma)" name="fasilitas" placeholder="ICU, NICU, Radiologi, ..." />
+        <Field label="Kapasitas Tempat Tidur" name="kapasitas_tt" type="number" placeholder="100" />
+        <Field label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="24 Jam" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    if (selectedKategori === "Rumah Sakit Khusus") return (
+      <div style={wrapStyle("#fff3e0", "#ffe0b2")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏥 Detail Rumah Sakit Khusus</h4>
+        {/* Opsi "Gigi" dihapus — sudah ada kategori Klinik Gigi */}
+        <Field label="Jenis Spesialisasi" name="jenis_spesialisasi" options={["Jiwa","Ibu & Anak","Kanker","Bedah","Jantung","Paru","Mata","THT"]} />
+        <Field label="Status" name="status_rs" options={["Negeri","Swasta"]} />
+        <Field label="IGD" name="igd" options={["Ya","Tidak"]} />
+        <Field label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 20:00" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    if (selectedKategori === "Klinik") return (
+      <div style={wrapStyle("#e3f2fd", "#bbdefb")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏥 Detail Klinik</h4>
+        <Field label="Jenis Klinik" name="jenis_klinik" options={["Pratama","Utama"]} />
+        <Field label="Layanan (pisahkan koma)" name="layanan" placeholder="Umum, Gigi, Kecantikan, ..." />
+        <Field label="Jenis Dokter" name="jenis_dokter" placeholder="dr. Budi, dr. Sari, ..." />
+        <Field label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 20:00" />
+        <Field label="Hari Buka" name="hari_buka" placeholder="Senin - Sabtu" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    if (selectedKategori === "Puskesmas") return (
+      <div style={wrapStyle("#f1f8e9", "#c5e1a5")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏛️ Detail Puskesmas</h4>
+        <Field label="Jenis" name="jenis" options={["Induk","Pembantu","Keliling"]} />
+        <Field label="Wilayah Kerja" name="wilayah_kerja" placeholder="Desa A, Desa B" />
+        <Field label="Rawat Inap" name="rawat_inap" options={["Ya","Tidak"]} />
+        <Field label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <Field label="Tersedia Bidan" name="tersedia_bidan" options={["Ya","Tidak"]} />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 16:00" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    if (selectedKategori === "Apotek") return (
+      <div style={wrapStyle("#e0f7fa", "#b2ebf2")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>💊 Detail Apotek</h4>
+        <Field label="Jaringan" name="jaringan" options={["Kimia Farma","K24","Guardian","Mandiri","Lainnya"]} />
+        <Field label="Apoteker" name="apoteker" placeholder="Apt. Budi" />
+        <Field label="Drive Thru" name="drive_thru" options={["Ya","Tidak"]} />
+        <Field label="Buka 24 Jam" name="buka_24_jam" options={["Ya","Tidak"]} />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 22:00" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    if (selectedKategori === "Klinik Gigi") return (
+      <div style={wrapStyle("#fffde7", "#fff9c4")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🦷 Detail Klinik Gigi</h4>
+        <Field label="Layanan Gigi (pisahkan koma)" name="layanan_gigi" placeholder="Umum, Kawat Gigi, Implan, Estetik" />
+        <Field label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <Field label="Nama Dokter" name="nama_dokter" placeholder="drg. Sari" />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="09:00 - 17:00" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    if (selectedKategori === "Bidan & Klinik Bersalin") return (
+      <div style={wrapStyle("#fce4ec", "#f8bbd0")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🤱 Detail Bidan & Klinik Bersalin</h4>
+        <Field label="Layanan (pisahkan koma)" name="layanan_bidan" placeholder="Persalinan, USG, KB, Imunisasi" />
+        <Field label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <Field label="Buka 24 Jam" name="buka_24_jam" options={["Ya","Tidak"]} />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 16:00" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    if (selectedKategori === "Fisioterapi & Rehabilitasi") return (
+      <div style={wrapStyle("#ede7f6", "#d1c4e9")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏋️ Detail Fisioterapi & Rehabilitasi</h4>
+        <Field label="Spesialisasi" name="spesialisasi_rehab" options={["Fisioterapi","Napza","Geriatri","Stroke","Pediatri"]} />
+        <Field label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <Field label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 16:00" />
+        <Field label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
+
+    return null;
   };
 
   // Debounce search
@@ -945,18 +988,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   };
 
   // Filter markers by kategori, search, dan status
+  // Mode normal  : hanya marker milik sendiri (admin: semua)
+  // Mode explore : semua marker Diterima + is_public (dari endpoint /explore)
   const displayedMarkers = (showExplore ? exploreMarkers : markers).filter(
     (m) => {
       const currentFilters = showExplore ? filtersExplore : filters;
       const categoryMatch = currentFilters[m.kategori] !== false;
-
-      // Status filter: admin lihat semua, user biasa hanya lihat Diterima atau milik sendiri
-      let statusMatch = true;
-      if (userRole !== "admin") {
-        statusMatch =
-          m.status === "Diterima" ||
-          String(m.user_id) === String(currentUserId);
-      }
 
       let searchMatch = true;
       if (searchQuery.trim().length > 0) {
@@ -969,7 +1006,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         searchMatch = nameMatch || kategoriMatch || attrMatch;
       }
 
-      return categoryMatch && statusMatch && searchMatch;
+      return categoryMatch && searchMatch;
     },
   );
 
@@ -1221,6 +1258,34 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               />
               Tampilkan titik ini ke publik
             </label>
+
+            {/* Field Foto URL */}
+            <label style={{ fontSize: "12px", fontWeight: "bold", color: "#555", display: "block", marginBottom: "6px" }}>
+              📷 URL Foto <span style={{ fontWeight: "normal", color: "#999" }}>(opsional)</span>
+            </label>
+            <input
+              type="url"
+              placeholder="https://contoh.com/foto.jpg"
+              value={fotoUrl}
+              onChange={(e) => setFotoUrl(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                marginBottom: "15px",
+                boxSizing: "border-box",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "13px",
+              }}
+            />
+            {fotoUrl && (
+              <img
+                src={fotoUrl}
+                alt="preview"
+                onError={(e) => { e.target.style.display = "none"; }}
+                style={{ width: "100%", maxHeight: "140px", objectFit: "cover", borderRadius: "6px", marginBottom: "15px" }}
+              />
+            )}
 
             {renderDynamicFields()}
 
@@ -1966,233 +2031,13 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                               setRoutingStep(0);
                             }
                           } else {
+                            // Klik marker → buka sidebar info
+                            setSidebarMarker(pos);
                             setActiveMarkerId(pos.id);
                           }
                         },
                       }}
-                    >
-                      <Popup onClose={() => setActiveMarkerId(null)}>
-                        <div
-                          style={{ textAlign: "center", marginBottom: "12px" }}
-                        >
-                          <span
-                            style={{
-                              background: markerColor,
-                              color: "white",
-                              padding: "4px 12px",
-                              borderRadius: "12px",
-                              fontSize: "12px",
-                              fontWeight: "bold",
-                              display: "inline-block",
-                            }}
-                          >
-                            {pos.kategori}
-                          </span>
-                        </div>
-                        <b>📍 {pos.name}</b>
-                        <br />
-                        <span style={{ fontSize: "12px", color: "#666" }}>
-                          {pos.alamat}
-                        </span>
-                        <br />
-                        <br />
-
-                        {Object.keys(pos.atribut_tambahan || {}).length > 0 && (
-                          <div
-                            style={{
-                              background: "#f8f9fa",
-                              padding: "8px",
-                              borderRadius: "6px",
-                              marginBottom: "10px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <strong style={{ fontSize: "11px" }}>
-                              DETAIL:
-                            </strong>
-                            <br />
-                            {Object.entries(pos.atribut_tambahan).map(
-                              ([key, val]) => (
-                                <div key={key} style={{ marginTop: "4px" }}>
-                                  <b>{key}:</b> {val}
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        )}
-
-                        {userLocation && (
-                          <button
-                            onClick={() => {
-                              setRouteTarget(pos);
-                              setActiveMarkerId(pos.id);
-                            }}
-                            style={{
-                              width: "100%",
-                              padding: "8px 10px",
-                              background: "#2ecc71",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              fontSize: "12px",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            Rute ke Sini
-                          </button>
-                        )}
-
-                        {/* Badge status untuk marker Pending/Rejected */}
-                        {pos.status && pos.status !== "Diterima" && (
-                          <div style={{ marginBottom: "8px" }}>
-                            <span
-                              style={{
-                                display: "inline-block",
-                                background:
-                                  pos.status === "Pending"
-                                    ? "#f39c12"
-                                    : "#e74c3c",
-                                color: "white",
-                                padding: "3px 10px",
-                                borderRadius: "10px",
-                                fontSize: "11px",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              {pos.status === "Pending"
-                                ? "⏳ Menunggu Persetujuan"
-                                : "❌ Ditolak"}
-                            </span>
-                            {/* Tampilkan alasan penolakan untuk pemilik marker */}
-                            {pos.status === "Rejected" &&
-                              pos.alasan_ditolak &&
-                              String(pos.user_id) === String(currentUserId) && (
-                                <div
-                                  style={{
-                                    marginTop: "6px",
-                                    padding: "8px 10px",
-                                    background: "#fff5f5",
-                                    border: "1px solid #ffcccc",
-                                    borderRadius: "6px",
-                                    fontSize: "12px",
-                                    color: "#c0392b",
-                                  }}
-                                >
-                                  <b>Alasan penolakan:</b>
-                                  <br />
-                                  {pos.alasan_ditolak}
-                                </div>
-                              )}
-                            {/* Alasan untuk admin */}
-                            {pos.status === "Rejected" &&
-                              pos.alasan_ditolak &&
-                              userRole === "admin" && (
-                                <div
-                                  style={{
-                                    marginTop: "6px",
-                                    padding: "8px 10px",
-                                    background: "#fff5f5",
-                                    border: "1px solid #ffcccc",
-                                    borderRadius: "6px",
-                                    fontSize: "12px",
-                                    color: "#c0392b",
-                                  }}
-                                >
-                                  <b>Alasan:</b> {pos.alasan_ditolak}
-                                </div>
-                              )}
-                          </div>
-                        )}
-
-                        {authKey &&
-                          (String(pos.user_id) === String(currentUserId) ||
-                            userRole === "admin") && (
-                            <div
-                              style={{
-                                marginTop: "10px",
-                                display: "flex",
-                                gap: "5px",
-                              }}
-                            >
-                              <button
-                                onClick={() => handleEditClick(pos)}
-                                style={{
-                                  flex: 1,
-                                  padding: "6px",
-                                  background: "#f39c12",
-                                  color: "white",
-                                  border: "none",
-                                  borderRadius: "4px",
-                                  cursor: "pointer",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeletePoint(pos.id)}
-                                style={{
-                                  flex: 1,
-                                  padding: "6px",
-                                  background: "#dc3545",
-                                  color: "white",
-                                  border: "none",
-                                  borderRadius: "4px",
-                                  cursor: "pointer",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                Hapus
-                              </button>
-                            </div>
-                          )}
-
-                        {/* Tombol Approve/Reject untuk admin */}
-                        {userRole === "admin" && pos.status === "Pending" && (
-                          <div
-                            style={{
-                              marginTop: "8px",
-                              display: "flex",
-                              gap: "5px",
-                            }}
-                          >
-                            <button
-                              onClick={() => handleApprove(pos.id)}
-                              style={{
-                                flex: 1,
-                                padding: "6px",
-                                background: "#27ae60",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              ✅ Setujui
-                            </button>
-                            <button
-                              onClick={() => handleReject(pos.id)}
-                              style={{
-                                flex: 1,
-                                padding: "6px",
-                                background: "#c0392b",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              ❌ Tolak
-                            </button>
-                          </div>
-                        )}
-                      </Popup>
-                    </Marker>
+                    />
                   );
                 })}
               </MarkerClusterGroup>
@@ -2332,50 +2177,262 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </div>
         )}
 
-        {/* Toggle Edit Mode (Admin) */}
-        {authKey && (
-          <div
+        {/* Tombol Tambah Marker Floating — hanya untuk user yang login */}
+        {authKey && activeView === "map" && (
+          <button
+            onClick={() => setIsEditMode(!isEditMode)}
+            title={isEditMode ? "Matikan mode tambah marker" : "Tambah marker baru"}
             style={{
               position: "absolute",
-              bottom: "20px",
-              left: "50%",
-              transform: "translateX(-50%)",
+              bottom: "30px",
+              right: "20px",
               zIndex: 1000,
-              background: "#fff",
-              padding: "10px 25px",
-              borderRadius: "30px",
-              boxShadow: "0 5px 15px rgba(0,0,0,0.2)",
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              background: isEditMode
+                ? "linear-gradient(135deg,#e74c3c,#c0392b)"
+                : "linear-gradient(135deg,#1a73e8,#0d47a1)",
+              color: "#fff",
+              border: "none",
+              fontSize: "28px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
               display: "flex",
               alignItems: "center",
-              gap: "10px",
+              justifyContent: "center",
+              transition: "all 0.2s",
             }}
           >
-            <span
-              style={{
-                fontWeight: "bold",
-                color: isEditMode ? "#e74c3c" : "#333",
-              }}
-            >
-              Mode Tambah: {isEditMode ? "✅ AKTIF" : "❌ MATI"}
-            </span>
-            <button
-              onClick={() => setIsEditMode(!isEditMode)}
-              style={{
-                background: isEditMode ? "#e74c3c" : "#2ecc71",
-                color: "#fff",
-                border: "none",
-                padding: "8px 15px",
-                borderRadius: "15px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              <Power
-                size={14}
-                style={{ marginRight: "6px", display: "inline" }}
+            {isEditMode ? "✕" : "+"}
+          </button>
+        )}
+
+        {/* Label mode tambah */}
+        {isEditMode && (
+          <div style={{
+            position: "absolute",
+            bottom: "96px",
+            right: "14px",
+            zIndex: 1000,
+            background: "#1a73e8",
+            color: "white",
+            padding: "6px 14px",
+            borderRadius: "20px",
+            fontSize: "12px",
+            fontWeight: "bold",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            pointerEvents: "none",
+          }}>
+            📍 Klik peta untuk tambah marker
+          </div>
+        )}
+
+        {/* SIDEBAR INFO MARKER — mirip Google Maps */}
+        {sidebarMarker && (
+          <div style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1200,
+            background: "#fff",
+            borderRadius: "20px 20px 0 0",
+            boxShadow: "0 -4px 24px rgba(0,0,0,0.18)",
+            maxHeight: "75vh",
+            overflowY: "auto",
+            padding: "0 0 20px 0",
+          }}>
+            {/* Handle bar */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
+              <div style={{ width: "40px", height: "4px", background: "#ddd", borderRadius: "2px" }} />
+            </div>
+
+            {/* Foto */}
+            {sidebarMarker.foto_url && (
+              <img
+                src={sidebarMarker.foto_url}
+                alt={sidebarMarker.name}
+                onError={(e) => { e.target.style.display = "none"; }}
+                style={{ width: "100%", height: "200px", objectFit: "cover" }}
               />
-              {isEditMode ? "Matikan" : "Nyalakan"}
-            </button>
+            )}
+
+            <div style={{ padding: "16px 20px 0" }}>
+              {/* Badge kategori + status */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
+                <span style={{
+                  background: colorMap[sidebarMarker.kategori] || "#3498db",
+                  color: "white",
+                  padding: "3px 12px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}>
+                  {sidebarMarker.kategori}
+                </span>
+                {sidebarMarker.status && sidebarMarker.status !== "Diterima" && (
+                  <span style={{
+                    background: sidebarMarker.status === "Pending" ? "#f39c12" : "#e74c3c",
+                    color: "white",
+                    padding: "3px 10px",
+                    borderRadius: "12px",
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                  }}>
+                    {sidebarMarker.status === "Pending" ? "⏳ Menunggu Persetujuan" : "❌ Ditolak"}
+                  </span>
+                )}
+              </div>
+
+              {/* Nama */}
+              <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e" }}>
+                {sidebarMarker.name}
+              </h2>
+
+              {/* Alamat */}
+              <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#5f6368", display: "flex", alignItems: "flex-start", gap: "4px" }}>
+                <MapPin size={14} style={{ marginTop: "2px", flexShrink: 0 }} />
+                {sidebarMarker.alamat || "Alamat tidak tersedia"}
+              </p>
+
+              {/* Pemilik */}
+              {sidebarMarker.pemilik && (
+                <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#888" }}>
+                  👤 Ditambahkan oleh: <b>{sidebarMarker.pemilik}</b>
+                </p>
+              )}
+
+              {/* Alasan penolakan */}
+              {sidebarMarker.status === "Rejected" && sidebarMarker.alasan_ditolak && (
+                <div style={{
+                  padding: "10px 12px",
+                  background: "#fff5f5",
+                  border: "1px solid #ffcccc",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  color: "#c0392b",
+                  marginBottom: "12px",
+                }}>
+                  <b>Alasan penolakan:</b><br />{sidebarMarker.alasan_ditolak}
+                </div>
+              )}
+
+              {/* Detail atribut */}
+              {Object.keys(sidebarMarker.atribut_tambahan || {}).length > 0 && (
+                <div style={{
+                  background: "#f8f9fa",
+                  borderRadius: "10px",
+                  padding: "12px",
+                  marginBottom: "14px",
+                }}>
+                  <p style={{ margin: "0 0 8px", fontSize: "11px", fontWeight: "bold", color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Detail Fasilitas
+                  </p>
+                  {Object.entries(sidebarMarker.atribut_tambahan).map(([key, val]) => (
+                    <div key={key} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "4px 0", borderBottom: "1px solid #eee" }}>
+                      <span style={{ color: "#555", textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
+                      <span style={{ fontWeight: "bold", color: "#333" }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Tombol aksi */}
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {/* Rute ke sini */}
+                {userLocation && (
+                  <button
+                    onClick={() => { setRouteTarget(sidebarMarker); setSidebarMarker(null); }}
+                    style={{
+                      flex: 1, minWidth: "120px",
+                      padding: "10px",
+                      background: "linear-gradient(135deg,#27ae60,#1e8449)",
+                      color: "white", border: "none", borderRadius: "10px",
+                      cursor: "pointer", fontSize: "13px", fontWeight: "bold",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                    }}
+                  >
+                    🗺️ Rute ke Sini
+                  </button>
+                )}
+
+                {/* Edit — hanya pemilik atau admin */}
+                {authKey && (String(sidebarMarker.user_id) === String(currentUserId) || userRole === "admin") && (
+                  <button
+                    onClick={() => handleEditClick(sidebarMarker)}
+                    style={{
+                      flex: 1, minWidth: "80px",
+                      padding: "10px",
+                      background: "#f39c12", color: "white",
+                      border: "none", borderRadius: "10px",
+                      cursor: "pointer", fontSize: "13px", fontWeight: "bold",
+                    }}
+                  >
+                    ✏️ Edit
+                  </button>
+                )}
+
+                {/* Hapus — hanya pemilik atau admin */}
+                {authKey && (String(sidebarMarker.user_id) === String(currentUserId) || userRole === "admin") && (
+                  <button
+                    onClick={() => handleDeletePoint(sidebarMarker.id)}
+                    style={{
+                      flex: 1, minWidth: "80px",
+                      padding: "10px",
+                      background: "#e74c3c", color: "white",
+                      border: "none", borderRadius: "10px",
+                      cursor: "pointer", fontSize: "13px", fontWeight: "bold",
+                    }}
+                  >
+                    🗑️ Hapus
+                  </button>
+                )}
+              </div>
+
+              {/* Approve/Reject untuk admin */}
+              {userRole === "admin" && sidebarMarker.status === "Pending" && (
+                <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                  <button
+                    onClick={() => { handleApprove(sidebarMarker.id); setSidebarMarker(prev => prev ? { ...prev, status: "Diterima" } : null); }}
+                    style={{
+                      flex: 1, padding: "10px",
+                      background: "#27ae60", color: "white",
+                      border: "none", borderRadius: "10px",
+                      cursor: "pointer", fontSize: "13px", fontWeight: "bold",
+                    }}
+                  >
+                    ✅ Setujui
+                  </button>
+                  <button
+                    onClick={() => { handleReject(sidebarMarker.id); setSidebarMarker(null); }}
+                    style={{
+                      flex: 1, padding: "10px",
+                      background: "#c0392b", color: "white",
+                      border: "none", borderRadius: "10px",
+                      cursor: "pointer", fontSize: "13px", fontWeight: "bold",
+                    }}
+                  >
+                    ❌ Tolak
+                  </button>
+                </div>
+              )}
+
+              {/* Tombol tutup */}
+              <button
+                onClick={() => { setSidebarMarker(null); setActiveMarkerId(null); }}
+                style={{
+                  width: "100%", marginTop: "12px",
+                  padding: "10px",
+                  background: "#f0f0f0", color: "#555",
+                  border: "none", borderRadius: "10px",
+                  cursor: "pointer", fontSize: "13px", fontWeight: "bold",
+                }}
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         )}
       </div>

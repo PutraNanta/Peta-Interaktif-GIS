@@ -36,6 +36,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         defaultValue: null,
       },
+      foto_url: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        defaultValue: null,
+      },
       user_id: { type: DataTypes.INTEGER, allowNull: true },
     },
     { sequelize, modelName: "ObjectPoint" },

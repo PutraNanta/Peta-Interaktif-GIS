@@ -6,6 +6,7 @@ exports.getAllPoints = async (req, res) => {
   try {
     let where = {};
     if (req.user.role !== "admin") {
+      // User biasa hanya lihat marker milik sendiri
       where = { user_id: req.user.id };
     }
     const include = [
@@ -19,21 +20,6 @@ exports.getAllPoints = async (req, res) => {
     const points = await ObjectPoint.findAll({
       where,
       include,
-      attributes: [
-        "id",
-        "nama",
-        "alamat",
-        "latitude",
-        "longitude",
-        "kategori_id",
-        "atribut_tambahan",
-        "is_public",
-        "status",
-        "alasan_ditolak",
-        "user_id",
-        "createdAt",
-        "updatedAt",
-      ],
       order: [["createdAt", "DESC"]],
     });
     res.json({ status: "success", data: points });
@@ -65,29 +51,15 @@ exports.explorePoints = async (req, res) => {
 
 // POST /api/points
 exports.createPoint = async (req, res) => {
-  const {
-    nama,
-    alamat,
-    latitude,
-    longitude,
-    kategori_id,
-    atribut_tambahan,
-    is_public,
-  } = req.body;
+  const { nama, alamat, latitude, longitude, kategori_id, atribut_tambahan, is_public, foto_url } = req.body;
   try {
     if (!nama || !latitude || !longitude || !kategori_id)
-      return res
-        .status(400)
-        .json({ message: "Field nama, koordinat, dan kategori wajib diisi" });
+      return res.status(400).json({ message: "Field nama, koordinat, dan kategori wajib diisi" });
 
     const point = await ObjectPoint.create({
-      nama,
-      alamat,
-      latitude,
-      longitude,
-      kategori_id,
-      atribut_tambahan,
+      nama, alamat, latitude, longitude, kategori_id, atribut_tambahan,
       is_public: is_public !== undefined ? is_public : true,
+      foto_url: foto_url || null,
       status: req.user.role === "admin" ? "Diterima" : "Pending",
       user_id: req.user.id,
     });
@@ -97,11 +69,7 @@ exports.createPoint = async (req, res) => {
         { model: User, as: "pemilik", attributes: ["username"] },
       ],
     });
-    res.json({
-      status: "success",
-      message: "Point berhasil ditambahkan",
-      data: full,
-    });
+    res.json({ status: "success", message: "Point berhasil ditambahkan", data: full });
   } catch (err) {
     res.status(500).json({ message: "Server Error: " + err.message });
   }
@@ -111,37 +79,23 @@ exports.createPoint = async (req, res) => {
 exports.updatePoint = async (req, res) => {
   try {
     const point = await ObjectPoint.findByPk(req.params.id);
-    if (!point)
-      return res.status(404).json({ message: "Point tidak ditemukan" });
+    if (!point) return res.status(404).json({ message: "Point tidak ditemukan" });
 
-    // Hanya pemilik atau admin yang boleh edit
     if (req.user.role !== "admin" && point.user_id !== req.user.id)
       return res.status(403).json({ message: "Akses ditolak" });
 
-    const {
-      nama,
-      alamat,
-      latitude,
-      longitude,
-      kategori_id,
-      atribut_tambahan,
-      is_public,
-    } = req.body;
+    const { nama, alamat, latitude, longitude, kategori_id, atribut_tambahan, is_public, foto_url } = req.body;
 
-    // Jika user biasa mengedit marker yang Rejected → reset ke Pending & hapus alasan
+    // Jika user biasa mengedit marker Rejected → reset ke Pending & hapus alasan
     const statusUpdate =
       req.user.role !== "admin" && point.status === "Rejected"
         ? { status: "Pending", alasan_ditolak: null }
         : {};
 
     await point.update({
-      nama,
-      alamat,
-      latitude,
-      longitude,
-      kategori_id,
-      atribut_tambahan,
+      nama, alamat, latitude, longitude, kategori_id, atribut_tambahan,
       is_public: is_public !== undefined ? is_public : point.is_public,
+      foto_url: foto_url !== undefined ? foto_url : point.foto_url,
       ...statusUpdate,
     });
 
@@ -161,8 +115,7 @@ exports.updatePoint = async (req, res) => {
 exports.deletePoint = async (req, res) => {
   try {
     const point = await ObjectPoint.findByPk(req.params.id);
-    if (!point)
-      return res.status(404).json({ message: "Point tidak ditemukan" });
+    if (!point) return res.status(404).json({ message: "Point tidak ditemukan" });
 
     if (req.user.role !== "admin" && point.user_id !== req.user.id)
       return res.status(403).json({ message: "Akses ditolak" });
@@ -173,14 +126,15 @@ exports.deletePoint = async (req, res) => {
     res.status(500).json({ message: "Server Error: " + err.message });
   }
 };
+
+// PUT /api/points/:id/approve  (admin only)
 exports.approvePoint = async (req, res) => {
   try {
     if (req.user.role !== "admin")
       return res.status(403).json({ message: "Akses ditolak" });
 
     const point = await ObjectPoint.findByPk(req.params.id);
-    if (!point)
-      return res.status(404).json({ message: "Point tidak ditemukan" });
+    if (!point) return res.status(404).json({ message: "Point tidak ditemukan" });
 
     await point.update({ status: "Diterima" });
     res.json({ status: "success", message: "Point disetujui" });
@@ -196,14 +150,10 @@ exports.rejectPoint = async (req, res) => {
       return res.status(403).json({ message: "Akses ditolak" });
 
     const point = await ObjectPoint.findByPk(req.params.id);
-    if (!point)
-      return res.status(404).json({ message: "Point tidak ditemukan" });
+    if (!point) return res.status(404).json({ message: "Point tidak ditemukan" });
 
     const { alasan_ditolak } = req.body;
-    await point.update({
-      status: "Rejected",
-      alasan_ditolak: alasan_ditolak || null,
-    });
+    await point.update({ status: "Rejected", alasan_ditolak: alasan_ditolak || null });
     res.json({ status: "success", message: "Point ditolak" });
   } catch (err) {
     res.status(500).json({ message: "Server Error: " + err.message });
