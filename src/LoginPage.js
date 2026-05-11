@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogIn, User, Shield, MapPin } from "lucide-react";
+import { LogIn, MapPin, HeartPulse } from "lucide-react";
+
+const bgLogin = process.env.PUBLIC_URL + "/bg-login.jpg";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -23,12 +25,9 @@ export default function LoginPage() {
         localStorage.setItem("userId", data.userId || data.id);
         localStorage.setItem("userRole", data.role || "user");
         localStorage.setItem("userName", data.username || "");
-        alert("✅ Login Sukses!");
         navigate("/");
       } else {
-        alert(
-          "❌ Login Gagal: " + (data.message || "Email atau password salah"),
-        );
+        alert("❌ Login Gagal: " + (data.message || "Email atau password salah"));
       }
     } catch (err) {
       alert("⚠️ Error Jaringan / Server Mati.");
@@ -41,42 +40,86 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        backgroundImage: `url(${bgLogin})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
         display: "flex",
         alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
+        justifyContent: "flex-end",
+        padding: "20px 80px 20px 20px",
       }}
     >
+      {/* Overlay tipis agar teks tetap terbaca */}
       <div
         style={{
-          background: "white",
-          padding: "40px",
-          borderRadius: "20px",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+          position: "fixed",
+          inset: 0,
+          background: "rgba(10, 30, 80, 0.25)",
+          zIndex: 0,
+        }}
+      />
+
+      {/* Card Login */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          background: "rgba(255, 255, 255, 0.92)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          padding: "44px 40px",
+          borderRadius: "24px",
+          boxShadow: "0 24px 64px rgba(0, 0, 0, 0.25)",
           width: "100%",
           maxWidth: "400px",
           textAlign: "center",
+          border: "1px solid rgba(255,255,255,0.6)",
         }}
       >
-        <div style={{ marginBottom: "30px" }}>
-          <MapPin size={60} color="#667eea" style={{ marginBottom: "10px" }} />
-          <h1 style={{ margin: "0", color: "#333", fontSize: "28px" }}>
-            Peta Interaktif GIS
+        {/* Logo & Judul */}
+        <div style={{ marginBottom: "32px" }}>
+          <div
+            style={{
+              width: "68px",
+              height: "68px",
+              background: "linear-gradient(135deg, #1a73e8, #0d47a1)",
+              borderRadius: "18px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "14px",
+              boxShadow: "0 8px 20px rgba(26,115,232,0.35)",
+            }}
+          >
+            <HeartPulse size={34} color="white" />
+          </div>
+          <h1
+            style={{
+              margin: "0 0 6px 0",
+              color: "#1a1a2e",
+              fontSize: "26px",
+              fontWeight: 800,
+              letterSpacing: "-0.5px",
+            }}
+          >
+            Peta Kesehatan Bali
           </h1>
-          <p style={{ margin: "10px 0 0 0", color: "#666" }}>
-            Masuk untuk mengakses peta kesehatan
+          <p style={{ margin: 0, color: "#5f6368", fontSize: "14px" }}>
+            Masuk untuk mengakses peta fasilitas kesehatan
           </p>
         </div>
 
         <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: "20px", textAlign: "left" }}>
+          {/* Email */}
+          <div style={{ marginBottom: "18px", textAlign: "left" }}>
             <label
               style={{
                 display: "block",
-                marginBottom: "5px",
-                fontWeight: "bold",
-                color: "#555",
+                marginBottom: "6px",
+                fontWeight: 700,
+                color: "#2c3e50",
+                fontSize: "13px",
               }}
             >
               Email
@@ -89,22 +132,29 @@ export default function LoginPage() {
               required
               style={{
                 width: "100%",
-                padding: "12px",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                fontSize: "16px",
+                padding: "12px 14px",
+                border: "1.5px solid #e0e0e0",
+                borderRadius: "10px",
+                fontSize: "14px",
                 boxSizing: "border-box",
+                outline: "none",
+                transition: "border-color 0.2s",
+                background: "#fafafa",
               }}
+              onFocus={(e) => (e.target.style.borderColor = "#1a73e8")}
+              onBlur={(e) => (e.target.style.borderColor = "#e0e0e0")}
             />
           </div>
 
-          <div style={{ marginBottom: "30px", textAlign: "left" }}>
+          {/* Password */}
+          <div style={{ marginBottom: "28px", textAlign: "left" }}>
             <label
               style={{
                 display: "block",
-                marginBottom: "5px",
-                fontWeight: "bold",
-                color: "#555",
+                marginBottom: "6px",
+                fontWeight: 700,
+                color: "#2c3e50",
+                fontSize: "13px",
               }}
             >
               Password
@@ -117,32 +167,42 @@ export default function LoginPage() {
               required
               style={{
                 width: "100%",
-                padding: "12px",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                fontSize: "16px",
+                padding: "12px 14px",
+                border: "1.5px solid #e0e0e0",
+                borderRadius: "10px",
+                fontSize: "14px",
                 boxSizing: "border-box",
+                outline: "none",
+                transition: "border-color 0.2s",
+                background: "#fafafa",
               }}
+              onFocus={(e) => (e.target.style.borderColor = "#1a73e8")}
+              onBlur={(e) => (e.target.style.borderColor = "#e0e0e0")}
             />
           </div>
 
+          {/* Tombol Login */}
           <button
             type="submit"
             disabled={isLoading}
             style={{
               width: "100%",
               padding: "14px",
-              background: isLoading ? "#ccc" : "#667eea",
+              background: isLoading
+                ? "#b0bec5"
+                : "linear-gradient(135deg, #1a73e8, #0d47a1)",
               color: "white",
               border: "none",
-              borderRadius: "8px",
-              fontSize: "16px",
-              fontWeight: "bold",
+              borderRadius: "10px",
+              fontSize: "15px",
+              fontWeight: 700,
               cursor: isLoading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "8px",
+              boxShadow: isLoading ? "none" : "0 4px 14px rgba(26,115,232,0.4)",
+              transition: "all 0.2s",
             }}
           >
             {isLoading ? (
@@ -151,12 +211,12 @@ export default function LoginPage() {
                   style={{
                     width: "16px",
                     height: "16px",
-                    border: "2px solid #fff",
-                    borderTop: "2px solid transparent",
+                    border: "2px solid rgba(255,255,255,0.5)",
+                    borderTop: "2px solid white",
                     borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
+                    animation: "spin 0.8s linear infinite",
                   }}
-                ></div>
+                />
                 Masuk...
               </>
             ) : (
@@ -168,66 +228,51 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ marginTop: "20px" }}>
-          <p style={{ margin: "0", color: "#666", fontSize: "14px" }}>
-            Belum punya akun?{" "}
-            <button
-              onClick={() => navigate("/register")}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#667eea",
-                cursor: "pointer",
-                textDecoration: "underline",
-                fontSize: "14px",
-              }}
-            >
-              Daftar di sini
-            </button>
-          </p>
-        </div>
+        {/* Link Register */}
+        <p style={{ marginTop: "22px", color: "#5f6368", fontSize: "14px" }}>
+          Belum punya akun?{" "}
+          <button
+            onClick={() => navigate("/register")}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#1a73e8",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: "14px",
+              padding: 0,
+              textDecoration: "underline",
+            }}
+          >
+            Daftar di sini
+          </button>
+        </p>
 
+        {/* Branding bawah */}
         <div
           style={{
             marginTop: "20px",
-            padding: "15px",
-            background: "#f8f9fa",
-            borderRadius: "8px",
+            paddingTop: "16px",
+            borderTop: "1px solid #f0f0f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+            color: "#9aa0a6",
+            fontSize: "12px",
           }}
         >
-          <h3 style={{ margin: "0 0 10px 0", fontSize: "16px", color: "#333" }}>
-            Info Login
-          </h3>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginBottom: "8px",
-            }}
-          >
-            <User size={16} color="#28a745" />
-            <span style={{ fontSize: "14px", color: "#555" }}>
-              User: Akses marker sendiri + explore publik
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <Shield size={16} color="#dc3545" />
-            <span style={{ fontSize: "14px", color: "#555" }}>
-              Admin: Akses semua marker
-            </span>
-          </div>
+          <MapPin size={13} />
+          Sistem Informasi Geografis — Universitas Udayana
         </div>
       </div>
 
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
