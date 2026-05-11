@@ -1,14 +1,12 @@
 const { ObjectPoint, KategoriKesehatan, User } = require("../models");
 const { Op } = require("sequelize");
 
-// GET /api/points  (user → milik sendiri atau Diterima; admin → semua)
+// GET /api/points  (user → hanya milik sendiri; admin → semua)
 exports.getAllPoints = async (req, res) => {
   try {
     let where = {};
     if (req.user.role !== "admin") {
-      where = {
-        [Op.or]: [{ user_id: req.user.id }, { status: "Diterima" }],
-      };
+      where = { user_id: req.user.id };
     }
     const include = [
       {
@@ -22,9 +20,19 @@ exports.getAllPoints = async (req, res) => {
       where,
       include,
       attributes: [
-        "id", "nama", "alamat", "latitude", "longitude",
-        "kategori_id", "atribut_tambahan", "is_public",
-        "status", "alasan_ditolak", "user_id", "createdAt", "updatedAt",
+        "id",
+        "nama",
+        "alamat",
+        "latitude",
+        "longitude",
+        "kategori_id",
+        "atribut_tambahan",
+        "is_public",
+        "status",
+        "alasan_ditolak",
+        "user_id",
+        "createdAt",
+        "updatedAt",
       ],
       order: [["createdAt", "DESC"]],
     });

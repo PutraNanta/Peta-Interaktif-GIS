@@ -517,7 +517,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           const result = await response.json();
           if (result.status === "success" && Array.isArray(result.data)) {
             // Simpan raw data agar tabel bisa akses nama, kategori.nama_kategori, pemilik.username
-            setApprovedMarkers(result.data.filter((p) => p.status === "Diterima"));
+            setApprovedMarkers(
+              result.data.filter((p) => p.status === "Diterima"),
+            );
           }
         } catch (error) {
           console.error("Fetch Approved Error:", error);
@@ -677,8 +679,13 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           );
           // Jika sebelumnya Rejected dan sekarang jadi Pending → beri tahu user
           const prevMarker = markers.find((m) => m.id === modalData.id);
-          if (prevMarker?.status === "Rejected" && savedMarker.status === "Pending") {
-            alert("✅ Marker berhasil dikirim ulang dan menunggu persetujuan admin.");
+          if (
+            prevMarker?.status === "Rejected" &&
+            savedMarker.status === "Pending"
+          ) {
+            alert(
+              "✅ Marker berhasil dikirim ulang dan menunggu persetujuan admin.",
+            );
           }
         } else {
           // Hanya tambah ke markers jika admin (langsung Diterima) atau sudah Diterima
@@ -686,7 +693,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             setMarkers((prev) => [...prev, savedMarker]);
           } else {
             // User biasa: marker Pending, beri tahu user
-            alert("✅ Marker berhasil ditambahkan dan menunggu persetujuan admin.");
+            alert(
+              "✅ Marker berhasil ditambahkan dan menunggu persetujuan admin.",
+            );
           }
         }
         setModalData(null);
@@ -790,7 +799,11 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         setMarkers((prev) =>
           prev.map((m) =>
             m.id === markerId
-              ? { ...m, status: "Rejected", alasan_ditolak: rejectAlasan.trim() || null }
+              ? {
+                  ...m,
+                  status: "Rejected",
+                  alasan_ditolak: rejectAlasan.trim() || null,
+                }
               : m,
           ),
         );
@@ -982,30 +995,58 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
       {/* MODAL REJECT — Admin isi alasan penolakan */}
       {rejectModal && (
-        <div style={{
-          position: "fixed",
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.6)",
-          zIndex: 3000,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}>
-          <div style={{
-            background: "#fff",
-            borderRadius: "12px",
-            padding: "28px",
-            width: "420px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-          }}>
-            <h3 style={{ margin: "0 0 6px 0", color: "#c0392b", display: "flex", alignItems: "center", gap: "8px" }}>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 3000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "28px",
+              width: "420px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 6px 0",
+                color: "#c0392b",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
               ❌ Tolak Marker
             </h3>
-            <p style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#666" }}>
+            <p
+              style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#666" }}
+            >
               Isi alasan penolakan agar user dapat memperbaiki markernya.
             </p>
-            <label style={{ fontSize: "12px", fontWeight: "bold", color: "#555", display: "block", marginBottom: "6px" }}>
-              Alasan Penolakan <span style={{ color: "#999", fontWeight: "normal" }}>(opsional)</span>
+            <label
+              style={{
+                fontSize: "12px",
+                fontWeight: "bold",
+                color: "#555",
+                display: "block",
+                marginBottom: "6px",
+              }}
+            >
+              Alasan Penolakan{" "}
+              <span style={{ color: "#999", fontWeight: "normal" }}>
+                (opsional)
+              </span>
             </label>
             <textarea
               value={rejectAlasan}
@@ -1023,9 +1064,19 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 fontFamily: "sans-serif",
               }}
             />
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                justifyContent: "flex-end",
+                marginTop: "20px",
+              }}
+            >
               <button
-                onClick={() => { setRejectModal(null); setRejectAlasan(""); }}
+                onClick={() => {
+                  setRejectModal(null);
+                  setRejectAlasan("");
+                }}
                 style={{
                   padding: "10px 18px",
                   background: "#ccc",
@@ -1995,95 +2046,117 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         {/* Badge status untuk marker Pending/Rejected */}
                         {pos.status && pos.status !== "Diterima" && (
                           <div style={{ marginBottom: "8px" }}>
-                            <span style={{
-                              display: "inline-block",
-                              background: pos.status === "Pending" ? "#f39c12" : "#e74c3c",
-                              color: "white",
-                              padding: "3px 10px",
-                              borderRadius: "10px",
-                              fontSize: "11px",
-                              fontWeight: "bold",
-                            }}>
-                              {pos.status === "Pending" ? "⏳ Menunggu Persetujuan" : "❌ Ditolak"}
+                            <span
+                              style={{
+                                display: "inline-block",
+                                background:
+                                  pos.status === "Pending"
+                                    ? "#f39c12"
+                                    : "#e74c3c",
+                                color: "white",
+                                padding: "3px 10px",
+                                borderRadius: "10px",
+                                fontSize: "11px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {pos.status === "Pending"
+                                ? "⏳ Menunggu Persetujuan"
+                                : "❌ Ditolak"}
                             </span>
                             {/* Tampilkan alasan penolakan untuk pemilik marker */}
-                            {pos.status === "Rejected" && pos.alasan_ditolak &&
+                            {pos.status === "Rejected" &&
+                              pos.alasan_ditolak &&
                               String(pos.user_id) === String(currentUserId) && (
-                              <div style={{
-                                marginTop: "6px",
-                                padding: "8px 10px",
-                                background: "#fff5f5",
-                                border: "1px solid #ffcccc",
-                                borderRadius: "6px",
-                                fontSize: "12px",
-                                color: "#c0392b",
-                              }}>
-                                <b>Alasan penolakan:</b><br />
-                                {pos.alasan_ditolak}
-                              </div>
-                            )}
+                                <div
+                                  style={{
+                                    marginTop: "6px",
+                                    padding: "8px 10px",
+                                    background: "#fff5f5",
+                                    border: "1px solid #ffcccc",
+                                    borderRadius: "6px",
+                                    fontSize: "12px",
+                                    color: "#c0392b",
+                                  }}
+                                >
+                                  <b>Alasan penolakan:</b>
+                                  <br />
+                                  {pos.alasan_ditolak}
+                                </div>
+                              )}
                             {/* Alasan untuk admin */}
-                            {pos.status === "Rejected" && pos.alasan_ditolak &&
+                            {pos.status === "Rejected" &&
+                              pos.alasan_ditolak &&
                               userRole === "admin" && (
-                              <div style={{
-                                marginTop: "6px",
-                                padding: "8px 10px",
-                                background: "#fff5f5",
-                                border: "1px solid #ffcccc",
-                                borderRadius: "6px",
-                                fontSize: "12px",
-                                color: "#c0392b",
-                              }}>
-                                <b>Alasan:</b> {pos.alasan_ditolak}
-                              </div>
-                            )}
+                                <div
+                                  style={{
+                                    marginTop: "6px",
+                                    padding: "8px 10px",
+                                    background: "#fff5f5",
+                                    border: "1px solid #ffcccc",
+                                    borderRadius: "6px",
+                                    fontSize: "12px",
+                                    color: "#c0392b",
+                                  }}
+                                >
+                                  <b>Alasan:</b> {pos.alasan_ditolak}
+                                </div>
+                              )}
                           </div>
                         )}
 
-                        {authKey && (
+                        {authKey &&
+                          (String(pos.user_id) === String(currentUserId) ||
+                            userRole === "admin") && (
+                            <div
+                              style={{
+                                marginTop: "10px",
+                                display: "flex",
+                                gap: "5px",
+                              }}
+                            >
+                              <button
+                                onClick={() => handleEditClick(pos)}
+                                style={{
+                                  flex: 1,
+                                  padding: "6px",
+                                  background: "#f39c12",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeletePoint(pos.id)}
+                                style={{
+                                  flex: 1,
+                                  padding: "6px",
+                                  background: "#dc3545",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                Hapus
+                              </button>
+                            </div>
+                          )}
+
+                        {/* Tombol Approve/Reject untuk admin */}
+                        {userRole === "admin" && pos.status === "Pending" && (
                           <div
                             style={{
-                              marginTop: "10px",
+                              marginTop: "8px",
                               display: "flex",
                               gap: "5px",
                             }}
                           >
-                            <button
-                              onClick={() => handleEditClick(pos)}
-                              style={{
-                                flex: 1,
-                                padding: "6px",
-                                background: "#f39c12",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeletePoint(pos.id)}
-                              style={{
-                                flex: 1,
-                                padding: "6px",
-                                background: "#dc3545",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                              }}
-                            >
-                              Hapus
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Tombol Approve/Reject untuk admin */}
-                        {userRole === "admin" && pos.status === "Pending" && (
-                          <div style={{ marginTop: "8px", display: "flex", gap: "5px" }}>
                             <button
                               onClick={() => handleApprove(pos.id)}
                               style={{
@@ -2154,7 +2227,14 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               overflowY: "auto",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "20px",
+              }}
+            >
               <h2 style={{ margin: 0, color: "#333" }}>
                 📋 Tabel Marker Disetujui ({approvedMarkers.length} entri)
               </h2>
@@ -2187,9 +2267,13 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 <tr>
                   <th style={{ padding: "12px", textAlign: "left" }}>No</th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Nama</th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Kategori</th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>
+                    Kategori
+                  </th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Alamat</th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Pemilik</th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>
+                    Pemilik
+                  </th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
                 </tr>
               </thead>
@@ -2198,7 +2282,11 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   <tr>
                     <td
                       colSpan="6"
-                      style={{ padding: "40px", textAlign: "center", color: "#888" }}
+                      style={{
+                        padding: "40px",
+                        textAlign: "center",
+                        color: "#888",
+                      }}
                     >
                       Belum ada marker yang disetujui.
                     </td>
