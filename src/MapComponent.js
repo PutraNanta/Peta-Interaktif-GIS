@@ -275,6 +275,45 @@ function OSRMRoute({ from, to, onRouteInfo }) {
   );
 }
 
+// ===== FIELD COMPONENT — di luar MapComponent agar tidak re-mount setiap render =====
+const inputStyle = {
+  width: "100%",
+  padding: "10px",
+  margin: "5px 0 12px 0",
+  boxSizing: "border-box",
+  border: "1px solid #ddd",
+  borderRadius: "6px",
+  fontSize: "13px",
+};
+const labelStyle = {
+  fontSize: "12px",
+  fontWeight: "bold",
+  color: "#555",
+  display: "block",
+  marginBottom: "4px",
+};
+
+function DynField({ label, name, type, placeholder, options, value, onChange }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      {options ? (
+        <select value={value || options[0]} onChange={(e) => onChange(name, e.target.value)} style={inputStyle}>
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : (
+        <input
+          type={type || "text"}
+          placeholder={placeholder}
+          value={value || ""}
+          onChange={(e) => onChange(name, e.target.value)}
+          style={inputStyle}
+        />
+      )}
+    </div>
+  );
+}
+
 // ===== MAIN COMPONENT =====
 export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const navigate = useNavigate();
@@ -660,7 +699,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       kategori_id: selectedCategory.id,
       atribut_tambahan: dynamicAttrs,
       is_public: isPublic,
-      foto_url: fotoUrl.trim() || null,
+      foto_url: fotoUrl && fotoUrl.startsWith("http") ? fotoUrl.trim() : null,
     };
 
     try {
@@ -849,320 +888,118 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
+  // Handler stabil untuk DynField — tidak membuat object baru setiap render
+  const handleDynChange = (name, value) => {
+    setDynamicAttrs((prev) => ({ ...prev, [name]: value }));
+  };
+
   // Render dynamic form fields per kategori
   const renderDynamicFields = () => {
-    const inputStyle = {
-      width: "100%",
-      padding: "10px",
-      margin: "5px 0 15px 0",
-      boxSizing: "border-box",
-      border: "1px solid #ddd",
-      borderRadius: "6px",
-      fontSize: "13px",
-    };
-    const labelStyle = {
-      fontSize: "12px",
-      fontWeight: "bold",
-      color: "#555",
-      display: "block",
-      marginBottom: "4px",
-    };
     const categoryColor = colorMap[selectedKategori] || "#000";
-
-    const Field = ({ label, name, type = "text", placeholder, options }) => (
-      <div>
-        <label style={labelStyle}>{label}</label>
-        {options ? (
-          <select
-            value={dynamicAttrs[name] || options[0]}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, [name]: e.target.value })
-            }
-            style={inputStyle}
-          >
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            type={type}
-            placeholder={placeholder}
-            value={dynamicAttrs[name] || ""}
-            onChange={(e) =>
-              setDynamicAttrs({ ...dynamicAttrs, [name]: e.target.value })
-            }
-            style={inputStyle}
-          />
-        )}
-      </div>
+    const F = (props) => (
+      <DynField {...props} value={dynamicAttrs[props.name] ?? ""} onChange={handleDynChange} />
     );
 
     const wrapStyle = (bg, border) => ({
-      marginTop: 15,
-      background: bg,
-      padding: 15,
-      borderRadius: 8,
-      border: `1px solid ${border}`,
+      marginTop: 15, background: bg, padding: 15, borderRadius: 8, border: `1px solid ${border}`,
     });
 
-    if (selectedKategori === "Rumah Sakit Umum")
-      return (
-        <div style={wrapStyle("#ffebee", "#ffcdd2")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏥 Detail Rumah Sakit Umum
-          </h4>
-          <Field
-            label="Kelas RS"
-            name="kelas_rs"
-            options={["A", "B", "C", "D"]}
-          />
-          <Field
-            label="Status"
-            name="status_rs"
-            options={["Negeri", "Swasta"]}
-          />
-          <Field label="IGD" name="igd" options={["Ya", "Tidak"]} />
-          <Field
-            label="Spesialisasi (pisahkan koma)"
-            name="spesialisasi"
-            placeholder="Anak, Kandungan, ..."
-          />
-          <Field
-            label="Fasilitas (pisahkan koma)"
-            name="fasilitas"
-            placeholder="ICU, NICU, Radiologi, ..."
-          />
-          <Field
-            label="Kapasitas Tempat Tidur"
-            name="kapasitas_tt"
-            type="number"
-            placeholder="100"
-          />
-          <Field label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="24 Jam"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Rumah Sakit Umum") return (
+      <div style={wrapStyle("#ffebee", "#ffcdd2")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏥 Detail Rumah Sakit Umum</h4>
+        <F label="Kelas RS" name="kelas_rs" options={["A","B","C","D"]} />
+        <F label="Status" name="status_rs" options={["Negeri","Swasta"]} />
+        <F label="IGD" name="igd" options={["Ya","Tidak"]} />
+        <F label="Spesialisasi (pisahkan koma)" name="spesialisasi" placeholder="Anak, Kandungan, ..." />
+        <F label="Fasilitas (pisahkan koma)" name="fasilitas" placeholder="ICU, NICU, Radiologi, ..." />
+        <F label="Kapasitas Tempat Tidur" name="kapasitas_tt" type="number" placeholder="100" />
+        <F label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="24 Jam" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
-    if (selectedKategori === "Rumah Sakit Khusus")
-      return (
-        <div style={wrapStyle("#fff3e0", "#ffe0b2")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏥 Detail Rumah Sakit Khusus
-          </h4>
-          {/* Opsi "Gigi" dihapus — sudah ada kategori Klinik Gigi */}
-          <Field
-            label="Jenis Spesialisasi"
-            name="jenis_spesialisasi"
-            options={[
-              "Jiwa",
-              "Ibu & Anak",
-              "Kanker",
-              "Bedah",
-              "Jantung",
-              "Paru",
-              "Mata",
-              "THT",
-            ]}
-          />
-          <Field
-            label="Status"
-            name="status_rs"
-            options={["Negeri", "Swasta"]}
-          />
-          <Field label="IGD" name="igd" options={["Ya", "Tidak"]} />
-          <Field label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 20:00"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Rumah Sakit Khusus") return (
+      <div style={wrapStyle("#fff3e0", "#ffe0b2")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏥 Detail Rumah Sakit Khusus</h4>
+        <F label="Jenis Spesialisasi" name="jenis_spesialisasi" options={["Jiwa","Ibu & Anak","Kanker","Bedah","Jantung","Paru","Mata","THT"]} />
+        <F label="Status" name="status_rs" options={["Negeri","Swasta"]} />
+        <F label="IGD" name="igd" options={["Ya","Tidak"]} />
+        <F label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 20:00" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
-    if (selectedKategori === "Klinik")
-      return (
-        <div style={wrapStyle("#e3f2fd", "#bbdefb")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏥 Detail Klinik
-          </h4>
-          <Field
-            label="Jenis Klinik"
-            name="jenis_klinik"
-            options={["Pratama", "Utama"]}
-          />
-          <Field
-            label="Layanan (pisahkan koma)"
-            name="layanan"
-            placeholder="Umum, Gigi, Kecantikan, ..."
-          />
-          <Field
-            label="Jenis Dokter"
-            name="jenis_dokter"
-            placeholder="dr. Budi, dr. Sari, ..."
-          />
-          <Field label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 20:00"
-          />
-          <Field
-            label="Hari Buka"
-            name="hari_buka"
-            placeholder="Senin - Sabtu"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Klinik") return (
+      <div style={wrapStyle("#e3f2fd", "#bbdefb")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🏥 Detail Klinik</h4>
+        <F label="Jenis Klinik" name="jenis_klinik" options={["Pratama","Utama"]} />
+        <F label="Layanan (pisahkan koma)" name="layanan" placeholder="Umum, Gigi, Kecantikan, ..." />
+        <F label="Jenis Dokter" name="jenis_dokter" placeholder="dr. Budi, dr. Sari, ..." />
+        <F label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 20:00" />
+        <F label="Hari Buka" name="hari_buka" placeholder="Senin - Sabtu" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
-    if (selectedKategori === "Puskesmas")
-      return (
-        <div style={wrapStyle("#f1f8e9", "#c5e1a5")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏛️ Detail Puskesmas
-          </h4>
-          <Field
-            label="Jenis"
-            name="jenis"
-            options={["Induk", "Pembantu", "Keliling"]}
-          />
-          <Field
-            label="Wilayah Kerja"
-            name="wilayah_kerja"
-            placeholder="Desa A, Desa B"
-          />
-          <Field
-            label="Rawat Inap"
-            name="rawat_inap"
-            options={["Ya", "Tidak"]}
-          />
-          <Field label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <Field
-            label="Tersedia Bidan"
-            name="tersedia_bidan"
-            options={["Ya", "Tidak"]}
-          />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 16:00"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Puskesmas") return (
+      <div style={wrapStyle("#f1f8e9", "#c5e1a5")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>�️ Detail Puskesmas</h4>
+        <F label="Jenis" name="jenis" options={["Induk","Pembantu","Keliling"]} />
+        <F label="Wilayah Kerja" name="wilayah_kerja" placeholder="Desa A, Desa B" />
+        <F label="Rawat Inap" name="rawat_inap" options={["Ya","Tidak"]} />
+        <F label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <F label="Tersedia Bidan" name="tersedia_bidan" options={["Ya","Tidak"]} />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 16:00" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
-    if (selectedKategori === "Apotek")
-      return (
-        <div style={wrapStyle("#e0f7fa", "#b2ebf2")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            💊 Detail Apotek
-          </h4>
-          <Field
-            label="Jaringan"
-            name="jaringan"
-            options={["Kimia Farma", "K24", "Guardian", "Mandiri", "Lainnya"]}
-          />
-          <Field label="Apoteker" name="apoteker" placeholder="Apt. Budi" />
-          <Field
-            label="Drive Thru"
-            name="drive_thru"
-            options={["Ya", "Tidak"]}
-          />
-          <Field
-            label="Buka 24 Jam"
-            name="buka_24_jam"
-            options={["Ya", "Tidak"]}
-          />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 22:00"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Apotek") return (
+      <div style={wrapStyle("#e0f7fa", "#b2ebf2")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>💊 Detail Apotek</h4>
+        <F label="Jaringan" name="jaringan" options={["Kimia Farma","K24","Guardian","Mandiri","Lainnya"]} />
+        <F label="Apoteker" name="apoteker" placeholder="Apt. Budi" />
+        <F label="Drive Thru" name="drive_thru" options={["Ya","Tidak"]} />
+        <F label="Buka 24 Jam" name="buka_24_jam" options={["Ya","Tidak"]} />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 22:00" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
-    if (selectedKategori === "Klinik Gigi")
-      return (
-        <div style={wrapStyle("#fffde7", "#fff9c4")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🦷 Detail Klinik Gigi
-          </h4>
-          <Field
-            label="Layanan Gigi (pisahkan koma)"
-            name="layanan_gigi"
-            placeholder="Umum, Kawat Gigi, Implan, Estetik"
-          />
-          <Field label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <Field
-            label="Nama Dokter"
-            name="nama_dokter"
-            placeholder="drg. Sari"
-          />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="09:00 - 17:00"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Klinik Gigi") return (
+      <div style={wrapStyle("#fffde7", "#fff9c4")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🦷 Detail Klinik Gigi</h4>
+        <F label="Layanan Gigi (pisahkan koma)" name="layanan_gigi" placeholder="Umum, Kawat Gigi, Implan, Estetik" />
+        <F label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <F label="Nama Dokter" name="nama_dokter" placeholder="drg. Sari" />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="09:00 - 17:00" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
-    if (selectedKategori === "Bidan & Klinik Bersalin")
-      return (
-        <div style={wrapStyle("#fce4ec", "#f8bbd0")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🤱 Detail Bidan & Klinik Bersalin
-          </h4>
-          <Field
-            label="Layanan (pisahkan koma)"
-            name="layanan_bidan"
-            placeholder="Persalinan, USG, KB, Imunisasi"
-          />
-          <Field label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <Field
-            label="Buka 24 Jam"
-            name="buka_24_jam"
-            options={["Ya", "Tidak"]}
-          />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 16:00"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Bidan & Klinik Bersalin") return (
+      <div style={wrapStyle("#fce4ec", "#f8bbd0")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>🤱 Detail Bidan & Klinik Bersalin</h4>
+        <F label="Layanan (pisahkan koma)" name="layanan_bidan" placeholder="Persalinan, USG, KB, Imunisasi" />
+        <F label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <F label="Buka 24 Jam" name="buka_24_jam" options={["Ya","Tidak"]} />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 16:00" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
-    if (selectedKategori === "Fisioterapi & Rehabilitasi")
-      return (
-        <div style={wrapStyle("#ede7f6", "#d1c4e9")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏋️ Detail Fisioterapi & Rehabilitasi
-          </h4>
-          <Field
-            label="Spesialisasi"
-            name="spesialisasi_rehab"
-            options={["Fisioterapi", "Napza", "Geriatri", "Stroke", "Pediatri"]}
-          />
-          <Field label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <Field
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 16:00"
-          />
-          <Field label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
+    if (selectedKategori === "Fisioterapi & Rehabilitasi") return (
+      <div style={wrapStyle("#ede7f6", "#d1c4e9")}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor }}>�️ Detail Fisioterapi & Rehabilitasi</h4>
+        <F label="Spesialisasi" name="spesialisasi_rehab" options={["Fisioterapi","Napza","Geriatri","Stroke","Pediatri"]} />
+        <F label="BPJS" name="bpjs" options={["Ya","Tidak"]} />
+        <F label="Jam Operasional" name="jam_operasional" placeholder="08:00 - 16:00" />
+        <F label="Telepon" name="telepon" placeholder="08123456789" />
+      </div>
+    );
 
     return null;
   };
