@@ -1,4 +1,4 @@
-import {
+﻿import {
   MapContainer,
   TileLayer,
   Marker,
@@ -122,7 +122,7 @@ function LocationMarker({
       if (clearActiveMarker) clearActiveMarker();
       if (!isEditMode) return;
       if (!authKey) {
-        alert("🔒 AKSES DITOLAK: Anda harus Login untuk menambah poin.");
+        alert("ðŸ”’ AKSES DITOLAK: Anda harus Login untuk menambah poin.");
         return;
       }
       onMapClick(e.latlng.lat, e.latlng.lng);
@@ -196,7 +196,7 @@ function UserLocationMarker() {
     >
       <Popup>
         <div style={{ textAlign: "center" }}>
-          <b>📍 Lokasi Anda Saat Ini</b>
+          <b>ðŸ“ Lokasi Anda Saat Ini</b>
           <br />
           <span style={{ fontSize: "12px", color: "#666" }}>
             Lat: {userLocation[0].toFixed(4)}, Lng: {userLocation[1].toFixed(4)}
@@ -275,7 +275,7 @@ function OSRMRoute({ from, to, onRouteInfo }) {
   );
 }
 
-// ===== FIELD COMPONENT — di luar MapComponent agar tidak re-mount setiap render =====
+// ===== FIELD COMPONENT â€” di luar MapComponent agar tidak re-mount setiap render =====
 const inputStyle = {
   width: "100%",
   padding: "10px",
@@ -386,7 +386,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // State untuk modal penolakan admin
   const [rejectModal, setRejectModal] = useState(null); // { markerId } | null
   const [rejectAlasan, setRejectAlasan] = useState("");
-  // Sidebar info marker (klik marker → tampil sidebar)
+  // Sidebar info marker (klik marker â†’ tampil sidebar)
   const [sidebarMarker, setSidebarMarker] = useState(null);
   // Field foto untuk form tambah/edit
   const [fotoUrl, setFotoUrl] = useState("");
@@ -394,18 +394,17 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Step untuk 2-step modal (1 = nama/kategori/foto, 2 = atribut)
   const [modalStep, setModalStep] = useState(1);
 
-  // Check auth on mount
+  // Check auth on mount â€” guest boleh tanpa login
   useEffect(() => {
     const token = localStorage.getItem("authToken");
-    if (!token) {
-      navigate("/login");
-    } else {
+    if (token) {
       setAuthKey(token);
-      setUserRole(localStorage.getItem("userRole") || "user");
+      setUserRole(localStorage.getItem("userRole") || "kontributor");
       setUserName(localStorage.getItem("userName") || "");
       setCurrentUserId(localStorage.getItem("userId"));
     }
-  }, [navigate]);
+    // Jika tidak ada token â†’ tetap di peta sebagai Guest
+  }, []);
 
   // Form States
   const [selectedKategori, setSelectedKategori] = useState("Apotek");
@@ -470,15 +469,23 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     };
 
     const fetchPoints = async () => {
-      if (!authKey) return; // sudah di-redirect ke login, tidak perlu fetch
-      // Authenticated: hanya milik sendiri (user) atau semua (admin)
       try {
-        const response = await fetch("http://localhost:5000/api/points", {
-          headers: { Authorization: `Bearer ${authKey}` },
-        });
-        const result = await response.json();
-        if (result.status === "success" && Array.isArray(result.data)) {
-          setMarkers(result.data.map(normalizePoint));
+        if (authKey) {
+          // Login: ambil marker milik sendiri (kontributor) atau semua (admin)
+          const response = await fetch("http://localhost:5000/api/points", {
+            headers: { Authorization: `Bearer ${authKey}` },
+          });
+          const result = await response.json();
+          if (result.status === "success" && Array.isArray(result.data)) {
+            setMarkers(result.data.map(normalizePoint));
+          }
+        } else {
+          // Guest: ambil dari endpoint explore (publik)
+          const response = await fetch("http://localhost:5000/api/points/explore");
+          const result = await response.json();
+          if (result.status === "success" && Array.isArray(result.data)) {
+            setMarkers(result.data.map(normalizePoint));
+          }
         }
       } catch (error) {
         console.error("Fetch Points Error:", error);
@@ -588,12 +595,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId || data.id);
         localStorage.setItem("userRole", data.role || "user");
-        alert("✅ Login Sukses!");
+        alert("âœ… Login Sukses!");
       } else {
-        alert("❌ Login Gagal!");
+        alert("âŒ Login Gagal!");
       }
     } catch (err) {
-      alert("⚠️ Error Jaringan / Server Mati.");
+      alert("âš ï¸ Error Jaringan / Server Mati.");
     }
   };
 
@@ -611,7 +618,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     navigate("/login");
   };
 
-  // Handle map click — buka modal tambah marker baru
+  // Handle map click â€” buka modal tambah marker baru
   const handleMapClick = async (lat, lng) => {
     try {
       const response = await fetch(
@@ -637,7 +644,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Handle edit click — buka modal edit
+  // Handle edit click â€” buka modal edit
   const handleEditClick = (pos) => {
     if (!authKey) return;
     setSidebarMarker(null);
@@ -658,7 +665,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Helper: Move to step 2 of modal
   const handleNextStep = () => {
     if (!customName.trim()) {
-      alert("⚠️ Nama lokasi harus diisi");
+      alert("âš ï¸ Nama lokasi harus diisi");
       return;
     }
     setModalStep(2);
@@ -703,7 +710,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       (cat) => cat.nama_kategori === selectedKategori,
     );
     if (!selectedCategory) {
-      alert("⚠️ Kategori belum tersedia. Silakan refresh halaman.");
+      alert("âš ï¸ Kategori belum tersedia. Silakan refresh halaman.");
       return;
     }
 
@@ -737,7 +744,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       const result = await backendResponse.json();
       if (!backendResponse.ok) {
         alert(
-          "❌ Gagal menyimpan data: " +
+          "âŒ Gagal menyimpan data: " +
             (result?.message ||
               backendResponse.statusText ||
               "Respons server gagal"),
@@ -774,14 +781,14 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           setMarkers((prev) =>
             prev.map((m) => (m.id === modalData.id ? savedMarker : m)),
           );
-          // Jika sebelumnya Rejected dan sekarang jadi Pending → beri tahu user
+          // Jika sebelumnya Rejected dan sekarang jadi Pending â†’ beri tahu user
           const prevMarker = markers.find((m) => m.id === modalData.id);
           if (
             prevMarker?.status === "Rejected" &&
             savedMarker.status === "Pending"
           ) {
             alert(
-              "✅ Marker berhasil dikirim ulang dan menunggu persetujuan admin.",
+              "âœ… Marker berhasil dikirim ulang dan menunggu persetujuan admin.",
             );
           }
         } else {
@@ -792,7 +799,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             // User biasa: marker Pending, tampilkan marker langsung agar foto dapat ditinjau
             setMarkers((prev) => [...prev, savedMarker]);
             alert(
-              "✅ Marker berhasil ditambahkan dan menunggu persetujuan admin.",
+              "âœ… Marker berhasil ditambahkan dan menunggu persetujuan admin.",
             );
           }
         }
@@ -802,18 +809,18 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         setFotoUrl("");
         setFotoFile(null);
       } else {
-        alert("❌ Gagal: " + result.message);
+        alert("âŒ Gagal: " + result.message);
       }
     } catch (err) {
       console.error(err);
-      alert("❌ Error saat menyimpan data");
+      alert("âŒ Error saat menyimpan data");
     }
   };
 
   // Handle delete
   const handleDeletePoint = async (markerId) => {
     if (!authKey) {
-      alert("🔒 AKSES DITOLAK.");
+      alert("ðŸ”’ AKSES DITOLAK.");
       return;
     }
     if (!window.confirm("Yakin menghapus poin ini?")) return;
@@ -834,7 +841,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
   const handleApprove = async (markerId) => {
     if (!authKey || userRole !== "admin") {
-      alert("🔒 AKSES DITOLAK.");
+      alert("ðŸ”’ AKSES DITOLAK.");
       return;
     }
     try {
@@ -917,7 +924,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Handler stabil untuk DynField — tidak membuat object baru setiap render
+  // Handler stabil untuk DynField â€” tidak membuat object baru setiap render
   const handleDynChange = (name, value) => {
     setDynamicAttrs((prev) => ({ ...prev, [name]: value }));
   };
@@ -945,7 +952,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#ffebee", "#ffcdd2")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏥 Detail Rumah Sakit Umum
+            ðŸ¥ Detail Rumah Sakit Umum
           </h4>
           <F label="Kelas RS" name="kelas_rs" options={["A", "B", "C", "D"]} />
           <F label="Status" name="status_rs" options={["Negeri", "Swasta"]} />
@@ -980,7 +987,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#fff3e0", "#ffe0b2")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏥 Detail Rumah Sakit Khusus
+            ðŸ¥ Detail Rumah Sakit Khusus
           </h4>
           <F
             label="Jenis Spesialisasi"
@@ -1012,7 +1019,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#e3f2fd", "#bbdefb")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🏥 Detail Klinik
+            ðŸ¥ Detail Klinik
           </h4>
           <F
             label="Jenis Klinik"
@@ -1044,7 +1051,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#f1f8e9", "#c5e1a5")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            �️ Detail Puskesmas
+            ï¿½ï¸ Detail Puskesmas
           </h4>
           <F
             label="Jenis"
@@ -1076,7 +1083,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#e0f7fa", "#b2ebf2")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            💊 Detail Apotek
+            ðŸ’Š Detail Apotek
           </h4>
           <F
             label="Jaringan"
@@ -1099,7 +1106,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#fffde7", "#fff9c4")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🦷 Detail Klinik Gigi
+            ðŸ¦· Detail Klinik Gigi
           </h4>
           <F
             label="Layanan Gigi (pisahkan koma)"
@@ -1121,7 +1128,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#fce4ec", "#f8bbd0")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            🤱 Detail Bidan & Klinik Bersalin
+            ðŸ¤± Detail Bidan & Klinik Bersalin
           </h4>
           <F
             label="Layanan (pisahkan koma)"
@@ -1143,7 +1150,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#ede7f6", "#d1c4e9")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            �️ Detail Fisioterapi & Rehabilitasi
+            ï¿½ï¸ Detail Fisioterapi & Rehabilitasi
           </h4>
           <F
             label="Spesialisasi"
@@ -1239,7 +1246,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         }
       `}</style>
 
-      {/* MODAL REJECT — Admin isi alasan penolakan */}
+      {/* MODAL REJECT â€” Admin isi alasan penolakan */}
       {rejectModal && (
         <div
           style={{
@@ -1273,7 +1280,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 gap: "8px",
               }}
             >
-              ❌ Tolak Marker
+              âŒ Tolak Marker
             </h3>
             <p
               style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#666" }}
@@ -1348,7 +1355,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   fontSize: "13px",
                 }}
               >
-                ❌ Konfirmasi Tolak
+                âŒ Konfirmasi Tolak
               </button>
             </div>
           </div>
@@ -1493,7 +1500,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     marginBottom: "6px",
                   }}
                 >
-                  📷 Foto Fasilitas{" "}
+                  ðŸ“· Foto Fasilitas{" "}
                   <span style={{ fontWeight: "normal", color: "#999" }}>
                     (opsional)
                   </span>
@@ -1595,7 +1602,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                       fontWeight: "bold",
                     }}
                   >
-                    Lanjut ke Atribut →
+                    Lanjut ke Atribut â†’
                   </button>
                 </div>
               </>
@@ -1615,9 +1622,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                       color: "#2c5aa0",
                     }}
                   >
-                    <strong>📝 Kategori:</strong> {selectedKategori}
+                    <strong>ðŸ“ Kategori:</strong> {selectedKategori}
                     <br />
-                    <strong>📍 Nama:</strong> {customName}
+                    <strong>ðŸ“ Nama:</strong> {customName}
                   </div>
                 )}
 
@@ -1644,7 +1651,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         fontWeight: "bold",
                       }}
                     >
-                      ← Kembali
+                      â† Kembali
                     </button>
                   )}
                   <button
@@ -1744,8 +1751,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               {authKey
                 ? userRole === "admin"
                   ? "Admin Mode"
-                  : "Temukan Layanan Kesehatan Anda"
-                : "👤 Public"}
+                  : "Mode Kontributor"
+                : "ðŸ‘¤ Mode Guest"}
             </p>
           </div>
         </div>
@@ -1998,7 +2005,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               >
                 <div>
                   <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
-                    Menu {userRole === "admin" ? "Admin" : "User"}
+                    Menu {userRole === "admin" ? "Admin" : "Kontributor"}
                   </h4>
                   <button
                     onClick={handleLogout}
@@ -2150,7 +2157,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     fontSize: "13px",
                   }}
                 >
-                  🗺️ Peta Jalan
+                  ðŸ—ºï¸ Peta Jalan
                 </div>
                 <div
                   onClick={() => {
@@ -2165,7 +2172,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     fontSize: "13px",
                   }}
                 >
-                  🛰️ Satelit
+                  ðŸ›°ï¸ Satelit
                 </div>
               </div>
             )}
@@ -2220,7 +2227,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 fontSize: "13px",
               }}
             >
-              ✖ Hapus Rute
+              âœ– Hapus Rute
             </button>
           )}
         </div>
@@ -2249,23 +2256,23 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 color: "#1a73e8",
               }}
             >
-              🗺️ Mode Routing
+              ðŸ—ºï¸ Mode Routing
             </div>
             {!startPoint && (
               <div style={{ fontSize: "13px", color: "#555" }}>
-                👆 Klik marker <b>titik awal</b>
+                ðŸ‘† Klik marker <b>titik awal</b>
               </div>
             )}
             {startPoint && !endPoint && (
               <div style={{ fontSize: "13px", color: "#555" }}>
-                ✅ Titik awal dipilih
+                âœ… Titik awal dipilih
                 <br />
-                👆 Klik marker <b>tujuan</b>
+                ðŸ‘† Klik marker <b>tujuan</b>
               </div>
             )}
             {startPoint && endPoint && !routeInfo && (
               <div style={{ fontSize: "13px", color: "#555" }}>
-                ⏳ Menghitung rute...
+                â³ Menghitung rute...
               </div>
             )}
             {startPoint && endPoint && routeInfo && (
@@ -2277,19 +2284,19 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     marginBottom: "4px",
                   }}
                 >
-                  ✅ Rute ditemukan
+                  âœ… Rute ditemukan
                 </div>
                 <div>
-                  📏 Jarak: <b>{routeInfo.distanceKm} km</b>
+                  ðŸ“ Jarak: <b>{routeInfo.distanceKm} km</b>
                 </div>
                 <div>
-                  ⏱️ Estimasi: <b>~{routeInfo.durationMin} menit</b>
+                  â±ï¸ Estimasi: <b>~{routeInfo.durationMin} menit</b>
                 </div>
               </div>
             )}
             {startPoint && endPoint && routeInfo === null && (
               <div style={{ fontSize: "13px", color: "#e74c3c" }}>
-                ⚠️ Rute tidak ditemukan, menampilkan garis lurus
+                âš ï¸ Rute tidak ditemukan, menampilkan garis lurus
               </div>
             )}
             {(startPoint || endPoint) && (
@@ -2312,7 +2319,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   fontWeight: "bold",
                 }}
               >
-                🔄 Reset Titik
+                ðŸ”„ Reset Titik
               </button>
             )}
           </div>
@@ -2342,12 +2349,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
               {tileLayer === "street" ? (
                 <TileLayer
-                  attribution="© OSM"
+                  attribution="Â© OSM"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
               ) : (
                 <TileLayer
-                  attribution="© Esri"
+                  attribution="Â© Esri"
                   url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 />
               )}
@@ -2388,7 +2395,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                               setRoutingStep(0);
                             }
                           } else {
-                            // Klik marker → buka sidebar info
+                            // Klik marker â†’ buka sidebar info
                             setSidebarMarker(pos);
                             setActiveMarkerId(pos.id);
                           }
@@ -2438,7 +2445,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               }}
             >
               <h2 style={{ margin: 0, color: "#333" }}>
-                📋 Tabel Marker Disetujui ({approvedMarkers.length} entri)
+                ðŸ“‹ Tabel Marker Disetujui ({approvedMarkers.length} entri)
               </h2>
               <button
                 onClick={() => setActiveView("map")}
@@ -2452,7 +2459,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   fontWeight: "bold",
                 }}
               >
-                ← Kembali ke Peta
+                â† Kembali ke Peta
               </button>
             </div>
             <table
@@ -2523,7 +2530,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                             fontWeight: "bold",
                           }}
                         >
-                          ✅ {marker.status}
+                          âœ… {marker.status}
                         </span>
                       </td>
                     </tr>
@@ -2534,7 +2541,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </div>
         )}
 
-        {/* Tombol Tambah Marker Floating — hanya untuk user yang login */}
+        {/* Tombol Tambah Marker Floating â€” hanya untuk user yang login */}
         {authKey && activeView === "map" && (
           <button
             onClick={() => setIsEditMode(!isEditMode)}
@@ -2564,7 +2571,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               transition: "all 0.2s",
             }}
           >
-            {isEditMode ? "✕" : "+"}
+            {isEditMode ? "âœ•" : "+"}
           </button>
         )}
 
@@ -2586,360 +2593,246 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               pointerEvents: "none",
             }}
           >
-            📍 Klik peta untuk tambah marker
+            ðŸ“ Klik peta untuk tambah marker
           </div>
         )}
 
-        {/* SIDEBAR INFO MARKER — mirip Google Maps */}
+        {/* SIDEBAR INFO MARKER â€” Google Maps style (kiri) */}
         {sidebarMarker && (
           <div
             style={{
               position: "absolute",
-              bottom: 0,
+              top: 0,
               left: 0,
-              right: 0,
+              bottom: 0,
+              width: "360px",
               zIndex: 1200,
               background: "#fff",
-              borderRadius: "20px 20px 0 0",
-              boxShadow: "0 -4px 24px rgba(0,0,0,0.18)",
-              maxHeight: "75vh",
+              boxShadow: "4px 0 24px rgba(0,0,0,0.18)",
+              display: "flex",
+              flexDirection: "column",
+              animation: "slideInLeft 0.25s ease",
               overflowY: "auto",
-              padding: "0 0 20px 0",
             }}
           >
-            {/* Handle bar */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                padding: "10px 0 4px",
-              }}
-            >
-              <div
-                style={{
-                  width: "40px",
-                  height: "4px",
-                  background: "#ddd",
-                  borderRadius: "2px",
-                }}
-              />
-            </div>
+            <style>{`
+              @keyframes slideInLeft {
+                from { transform: translateX(-100%); opacity: 0; }
+                to   { transform: translateX(0);    opacity: 1; }
+              }
+              .attr-row:last-child { border-bottom: none !important; }
+            `}</style>
 
-            {/* Foto */}
-            {sidebarMarker.foto_url && (
-              <img
-                src={sidebarMarker.foto_url}
-                alt={sidebarMarker.name}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-                style={{ width: "100%", height: "200px", objectFit: "cover" }}
-              />
+            {/* Foto header */}
+            {sidebarMarker.foto_url ? (
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <img
+                  src={sidebarMarker.foto_url}
+                  alt={sidebarMarker.name}
+                  onError={(e) => { e.target.style.display = "none"; }}
+                  style={{ width: "100%", height: "200px", objectFit: "cover", display: "block" }}
+                />
+                <button
+                  onClick={() => { setSidebarMarker(null); setActiveMarkerId(null); }}
+                  style={{
+                    position: "absolute", top: "12px", right: "12px",
+                    background: "rgba(0,0,0,0.5)", border: "none", color: "#fff",
+                    width: "32px", height: "32px", borderRadius: "50%",
+                    cursor: "pointer", fontSize: "18px", display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                  }}
+                >Ã—</button>
+              </div>
+            ) : (
+              /* Gradient header tanpa foto */
+              <div style={{
+                flexShrink: 0, height: "100px", position: "relative",
+                background: `linear-gradient(135deg, ${colorMap[sidebarMarker.kategori] || "#3498db"}, #1a1a2e)`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <span style={{ fontSize: "48px" }}>
+                  {sidebarMarker.kategori?.includes("Apotek") ? "ðŸ’Š"
+                    : sidebarMarker.kategori?.includes("Puskesmas") ? "ðŸ¥"
+                    : sidebarMarker.kategori?.includes("Gigi") ? "ðŸ¦·"
+                    : sidebarMarker.kategori?.includes("Bidan") ? "ðŸ¤±"
+                    : sidebarMarker.kategori?.includes("Fisio") ? "ðŸƒ"
+                    : "ðŸ¥"}
+                </span>
+                <button
+                  onClick={() => { setSidebarMarker(null); setActiveMarkerId(null); }}
+                  style={{
+                    position: "absolute", top: "12px", right: "12px",
+                    background: "rgba(0,0,0,0.3)", border: "none", color: "#fff",
+                    width: "32px", height: "32px", borderRadius: "50%",
+                    cursor: "pointer", fontSize: "18px", display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                  }}
+                >Ã—</button>
+              </div>
             )}
 
-            <div style={{ padding: "16px 20px 0" }}>
-              {/* Badge kategori + status */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginBottom: "8px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <span
-                  style={{
-                    background: colorMap[sidebarMarker.kategori] || "#3498db",
-                    color: "white",
-                    padding: "3px 12px",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                  }}
-                >
+            {/* Konten */}
+            <div style={{ padding: "18px 20px", flex: 1 }}>
+
+              {/* Kategori badge + status */}
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
+                <span style={{
+                  background: colorMap[sidebarMarker.kategori] || "#3498db",
+                  color: "#fff", padding: "3px 12px", borderRadius: "20px",
+                  fontSize: "11px", fontWeight: 700, letterSpacing: "0.3px",
+                }}>
                   {sidebarMarker.kategori}
                 </span>
-                {sidebarMarker.status &&
-                  sidebarMarker.status !== "Diterima" && (
-                    <span
-                      style={{
-                        background:
-                          sidebarMarker.status === "Pending"
-                            ? "#f39c12"
-                            : "#e74c3c",
-                        color: "white",
-                        padding: "3px 10px",
-                        borderRadius: "12px",
-                        fontSize: "11px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {sidebarMarker.status === "Pending"
-                        ? "⏳ Menunggu Persetujuan"
-                        : "❌ Ditolak"}
-                    </span>
-                  )}
+                {sidebarMarker.status && sidebarMarker.status !== "Diterima" && (
+                  <span style={{
+                    background: sidebarMarker.status === "Pending" ? "#f39c12" : "#e74c3c",
+                    color: "#fff", padding: "3px 10px", borderRadius: "20px",
+                    fontSize: "11px", fontWeight: 700,
+                  }}>
+                    {sidebarMarker.status === "Pending" ? "â³ Menunggu Review" : "âŒ Ditolak"}
+                  </span>
+                )}
               </div>
 
               {/* Nama */}
-              <h2
-                style={{
-                  margin: "0 0 4px",
-                  fontSize: "20px",
-                  fontWeight: 800,
-                  color: "#1a1a2e",
-                }}
-              >
+              <h2 style={{ margin: "0 0 6px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", lineHeight: 1.3 }}>
                 {sidebarMarker.name}
               </h2>
 
               {/* Alamat */}
-              <p
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: "13px",
-                  color: "#5f6368",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "4px",
-                }}
-              >
-                <MapPin size={14} style={{ marginTop: "2px", flexShrink: 0 }} />
-                {sidebarMarker.alamat || "Alamat tidak tersedia"}
-              </p>
+              <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "10px" }}>
+                <MapPin size={15} color="#5f6368" style={{ marginTop: "2px", flexShrink: 0 }} />
+                <span style={{ fontSize: "13px", color: "#5f6368", lineHeight: 1.5 }}>
+                  {sidebarMarker.alamat || "Alamat tidak tersedia"}
+                </span>
+              </div>
 
-              {/* Pemilik */}
+              {/* Kontributor */}
               {sidebarMarker.pemilik && (
-                <p
-                  style={{
-                    margin: "0 0 12px",
-                    fontSize: "12px",
-                    color: "#888",
-                  }}
-                >
-                  👤 Ditambahkan oleh: <b>{sidebarMarker.pemilik}</b>
-                </p>
+                <div style={{ fontSize: "12px", color: "#9aa0a6", marginBottom: "14px" }}>
+                  ðŸ‘¤ Ditambahkan oleh <b style={{ color: "#5f6368" }}>{sidebarMarker.pemilik}</b>
+                </div>
               )}
 
               {/* Alasan penolakan */}
-              {sidebarMarker.status === "Rejected" &&
-                sidebarMarker.alasan_ditolak && (
-                  <div
-                    style={{
-                      padding: "10px 12px",
-                      background: "#fff5f5",
-                      border: "1px solid #ffcccc",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      color: "#c0392b",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    <b>Alasan penolakan:</b>
-                    <br />
-                    {sidebarMarker.alasan_ditolak}
-                  </div>
-                )}
+              {sidebarMarker.status === "Rejected" && sidebarMarker.alasan_ditolak && (
+                <div style={{
+                  padding: "12px", background: "#fff5f5", border: "1px solid #ffcccc",
+                  borderRadius: "10px", fontSize: "13px", color: "#c0392b", marginBottom: "14px",
+                }}>
+                  <b>Alasan penolakan:</b><br />{sidebarMarker.alasan_ditolak}
+                </div>
+              )}
 
-              {/* Detail atribut */}
+              {/* Divider */}
+              <div style={{ height: "1px", background: "#f0f0f0", margin: "14px 0" }} />
+
+              {/* Atribut Detail */}
               {Object.keys(sidebarMarker.atribut_tambahan || {}).length > 0 && (
-                <div
-                  style={{
-                    background: "#f8f9fa",
-                    borderRadius: "10px",
-                    padding: "12px",
-                    marginBottom: "14px",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: "0 0 8px",
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                      color: "#888",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}
-                  >
+                <div>
+                  <p style={{ margin: "0 0 10px", fontSize: "11px", fontWeight: 700,
+                    color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>
                     Detail Fasilitas
                   </p>
-                  {Object.entries(sidebarMarker.atribut_tambahan).map(
-                    ([key, val]) => (
-                      <div
-                        key={key}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "13px",
-                          padding: "4px 0",
-                          borderBottom: "1px solid #eee",
-                        }}
-                      >
-                        <span
-                          style={{ color: "#555", textTransform: "capitalize" }}
-                        >
-                          {key.replace(/_/g, " ")}
+                  {Object.entries(sidebarMarker.atribut_tambahan).map(([key, val]) => {
+                    const icons = {
+                      jam_operasional: "ðŸ•", telepon: "ðŸ“ž", bpjs: "ðŸ·ï¸", igd: "ðŸš¨",
+                      spesialisasi: "ðŸ‘¨â€âš•ï¸", fasilitas: "ðŸ—ï¸", kapasitas_tt: "ðŸ›ï¸",
+                      status_rs: "ðŸ›ï¸", kelas_rs: "â­", rawat_inap: "ðŸ›Œ",
+                      drive_thru: "ðŸš—", buka_24_jam: "â°", nama_dokter: "ðŸ‘©â€âš•ï¸",
+                      apoteker: "ðŸ’Š", jaringan: "ðŸ”—", jenis_klinik: "ðŸ¥",
+                    };
+                    const icon = icons[key] || "â€¢";
+                    return (
+                      <div key={key} className="attr-row" style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: "9px 0", borderBottom: "1px solid #f5f5f5", gap: "10px",
+                      }}>
+                        <span style={{ fontSize: "13px", color: "#5f6368", display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span>{icon}</span>
+                          <span style={{ textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
                         </span>
-                        <span style={{ fontWeight: "bold", color: "#333" }}>
+                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#1a1a2e", textAlign: "right" }}>
                           {val}
                         </span>
                       </div>
-                    ),
-                  )}
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Tombol aksi */}
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                {/* Rute ke sini */}
-                {userLocation && (
+              {/* Divider */}
+              <div style={{ height: "1px", background: "#f0f0f0", margin: "14px 0" }} />
+
+              {/* Tombol Rute */}
+              {userLocation && (
+                <button
+                  onClick={() => { setRouteTarget(sidebarMarker); setSidebarMarker(null); }}
+                  style={{
+                    width: "100%", padding: "12px", marginBottom: "8px",
+                    background: "linear-gradient(135deg,#1a73e8,#0d47a1)",
+                    color: "#fff", border: "none", borderRadius: "10px",
+                    cursor: "pointer", fontSize: "14px", fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  }}
+                >
+                  ðŸ—ºï¸ Rute ke Sini
+                </button>
+              )}
+
+              {/* Tombol Edit & Hapus (hanya pemilik / admin) */}
+              {authKey && (String(sidebarMarker.user_id) === String(currentUserId) || userRole === "admin") && (
+                <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                   <button
-                    onClick={() => {
-                      setRouteTarget(sidebarMarker);
-                      setSidebarMarker(null);
-                    }}
+                    onClick={() => handleEditClick(sidebarMarker)}
                     style={{
-                      flex: 1,
-                      minWidth: "120px",
-                      padding: "10px",
-                      background: "linear-gradient(135deg,#27ae60,#1e8449)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "10px",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: "bold",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "6px",
+                      flex: 1, padding: "11px",
+                      background: "#fff3e0", color: "#e67e22",
+                      border: "1px solid #f0c070", borderRadius: "10px",
+                      cursor: "pointer", fontSize: "13px", fontWeight: 700,
                     }}
-                  >
-                    🗺️ Rute ke Sini
-                  </button>
-                )}
+                  >âœï¸ Edit</button>
+                  <button
+                    onClick={() => handleDeletePoint(sidebarMarker.id)}
+                    style={{
+                      flex: 1, padding: "11px",
+                      background: "#fff5f5", color: "#e74c3c",
+                      border: "1px solid #ffcccc", borderRadius: "10px",
+                      cursor: "pointer", fontSize: "13px", fontWeight: 700,
+                    }}
+                  >ðŸ—‘ï¸ Hapus</button>
+                </div>
+              )}
 
-                {/* Edit — hanya pemilik atau admin */}
-                {authKey &&
-                  (String(sidebarMarker.user_id) === String(currentUserId) ||
-                    userRole === "admin") && (
-                    <button
-                      onClick={() => handleEditClick(sidebarMarker)}
-                      style={{
-                        flex: 1,
-                        minWidth: "80px",
-                        padding: "10px",
-                        background: "#f39c12",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "10px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      ✏️ Edit
-                    </button>
-                  )}
-
-                {/* Hapus — hanya pemilik atau admin */}
-                {authKey &&
-                  (String(sidebarMarker.user_id) === String(currentUserId) ||
-                    userRole === "admin") && (
-                    <button
-                      onClick={() => handleDeletePoint(sidebarMarker.id)}
-                      style={{
-                        flex: 1,
-                        minWidth: "80px",
-                        padding: "10px",
-                        background: "#e74c3c",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "10px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      🗑️ Hapus
-                    </button>
-                  )}
-              </div>
-
-              {/* Approve/Reject untuk admin */}
+              {/* Approve / Reject (admin) */}
               {userRole === "admin" && sidebarMarker.status === "Pending" && (
-                <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                   <button
-                    onClick={() => {
-                      handleApprove(sidebarMarker.id);
-                      setSidebarMarker((prev) =>
-                        prev ? { ...prev, status: "Diterima" } : null,
-                      );
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      background: "#27ae60",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "10px",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    ✅ Setujui
-                  </button>
+                    onClick={() => { handleApprove(sidebarMarker.id); setSidebarMarker((p) => p ? { ...p, status: "Diterima" } : null); }}
+                    style={{ flex: 1, padding: "11px", background: "#27ae60", color: "#fff", border: "none", borderRadius: "10px", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}
+                  >âœ… Setujui</button>
                   <button
-                    onClick={() => {
-                      handleReject(sidebarMarker.id);
-                      setSidebarMarker(null);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      background: "#c0392b",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "10px",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    ❌ Tolak
-                  </button>
+                    onClick={() => { handleReject(sidebarMarker.id); setSidebarMarker(null); }}
+                    style={{ flex: 1, padding: "11px", background: "#e74c3c", color: "#fff", border: "none", borderRadius: "10px", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}
+                  >âŒ Tolak</button>
                 </div>
               )}
 
-              {/* Tombol tutup */}
+              {/* Tutup */}
               <button
-                onClick={() => {
-                  setSidebarMarker(null);
-                  setActiveMarkerId(null);
-                }}
+                onClick={() => { setSidebarMarker(null); setActiveMarkerId(null); }}
                 style={{
-                  width: "100%",
-                  marginTop: "12px",
-                  padding: "10px",
-                  background: "#f0f0f0",
-                  color: "#555",
-                  border: "none",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                  fontWeight: "bold",
+                  width: "100%", padding: "10px", background: "#f8f9fa",
+                  color: "#5f6368", border: "none", borderRadius: "10px",
+                  cursor: "pointer", fontSize: "13px", fontWeight: 600,
                 }}
-              >
-                Tutup
-              </button>
+              >Tutup</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Footer untuk non-admin */}
+      {/* Footer untuk Guest */}
       {!authKey && (
         <div
           style={{
@@ -2947,17 +2840,32 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             bottom: 0,
             left: 0,
             width: "100%",
-            height: "60px",
-            background: "#212529",
+            height: "52px",
+            background: "linear-gradient(90deg,#1a73e8,#0d47a1)",
             color: "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            gap: "16px",
             fontSize: "13px",
+            fontWeight: 600,
             zIndex: 1000,
           }}
         >
-          💡 Login untuk mengelola fasilitas kesehatan
+          ðŸ‘¤ Anda menjelajah sebagai <b>Guest</b>
+          <button
+            onClick={() => navigate("/login")}
+            style={{
+              background: "#fff",
+              color: "#1a73e8",
+              border: "none",
+              padding: "6px 16px",
+              borderRadius: "20px",
+              fontWeight: 700,
+              cursor: "pointer",
+              fontSize: "13px",
+            }}
+          >Login / Daftar</button>
         </div>
       )}
     </div>

@@ -244,32 +244,50 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        {/* Link Login */}
-        <p
-          style={{
-            textAlign: "center",
-            marginTop: "22px",
-            fontSize: "14px",
-            color: "#5f6368",
-          }}
-        >
-          Sudah punya akun?{" "}
+        {/* Link Login & Guest */}
+        <div style={{ textAlign: "center", marginTop: "22px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          <p style={{ margin: 0, fontSize: "14px", color: "#5f6368" }}>
+            Sudah punya akun?{" "}
+            <button
+              onClick={() => navigate("/login")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#1a73e8",
+                fontWeight: 700,
+                fontSize: "14px",
+                cursor: "pointer",
+                padding: 0,
+                textDecoration: "underline",
+              }}
+            >
+              Masuk di sini
+            </button>
+          </p>
+          <div style={{ display: "flex", alignItems: "center", margin: "4px 0" }}>
+            <div style={{ flex: 1, height: "1px", background: "#f0f0f0" }}></div>
+            <span style={{ padding: "0 10px", fontSize: "12px", color: "#9aa0a6" }}>ATAU</span>
+            <div style={{ flex: 1, height: "1px", background: "#f0f0f0" }}></div>
+          </div>
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/")}
             style={{
               background: "none",
-              border: "none",
+              border: "1px solid #1a73e8",
               color: "#1a73e8",
+              padding: "10px",
+              borderRadius: "10px",
               fontWeight: 700,
               fontSize: "14px",
               cursor: "pointer",
-              padding: 0,
-              textDecoration: "underline",
+              transition: "all 0.2s",
             }}
+            onMouseOver={(e) => { e.target.style.background = "#e8f0fe"; }}
+            onMouseOut={(e) => { e.target.style.background = "none"; }}
           >
-            Masuk di sini
+            Lanjutkan sebagai Guest
           </button>
-        </p>
+        </div>
 
         {/* Branding bawah */}
         <div

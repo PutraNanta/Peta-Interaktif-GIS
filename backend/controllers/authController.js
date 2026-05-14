@@ -14,7 +14,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Email sudah terdaftar' });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, email, password: passwordHash, role: 'user' });
+    const user = await User.create({ username, email, password: passwordHash, role: 'kontributor' });
 
     const token = jwt.sign(
       { user: { id: user.id, role: user.role } },

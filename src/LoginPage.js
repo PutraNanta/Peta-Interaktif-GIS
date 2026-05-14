@@ -23,7 +23,7 @@ export default function LoginPage() {
       if (data.token) {
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId || data.id);
-        localStorage.setItem("userRole", data.role || "user");
+        localStorage.setItem("userRole", data.role || "kontributor");
         localStorage.setItem("userName", data.username || "");
         navigate("/");
       } else {
@@ -247,6 +247,32 @@ export default function LoginPage() {
             Daftar di sini
           </button>
         </p>
+
+        {/* Separator */}
+        <div style={{ display: "flex", alignItems: "center", margin: "6px 0 14px" }}>
+          <div style={{ flex: 1, height: "1px", background: "#f0f0f0" }} />
+          <span style={{ padding: "0 10px", fontSize: "12px", color: "#9aa0a6" }}>ATAU</span>
+          <div style={{ flex: 1, height: "1px", background: "#f0f0f0" }} />
+        </div>
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            width: "100%",
+            padding: "12px",
+            background: "none",
+            border: "1.5px solid #1a73e8",
+            color: "#1a73e8",
+            borderRadius: "10px",
+            fontWeight: 700,
+            fontSize: "14px",
+            cursor: "pointer",
+            transition: "background 0.2s",
+          }}
+          onMouseOver={(e) => (e.target.style.background = "#e8f0fe")}
+          onMouseOut={(e) => (e.target.style.background = "none")}
+        >
+          👤 Lanjutkan sebagai Guest
+        </button>
 
         {/* Branding bawah */}
         <div
