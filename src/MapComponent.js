@@ -1805,7 +1805,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 ? userRole === "admin"
                   ? "Admin Mode"
                   : "Mode Kontributor"
-                : "ðŸ‘¤ Mode Guest"}
+                : "Mode Guest"}
             </p>
           </div>
         </div>
