@@ -218,7 +218,16 @@ function UserLocationMarker() {
     >
       <Popup>
         <div style={{ textAlign: "center" }}>
-          <b>ðŸ“ Lokasi Anda Saat Ini</b>
+          <b
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+            }}
+          >
+            <MapPin size={14} /> Lokasi Anda Saat Ini
+          </b>
           <br />
           <span style={{ fontSize: "12px", color: "#666" }}>
             Lat: {userLocation[0].toFixed(4)}, Lng: {userLocation[1].toFixed(4)}
@@ -689,7 +698,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Helper: Move to step 2 of modal
   const handleNextStep = () => {
     if (!customName.trim()) {
-      alert("âš ï¸ Nama lokasi harus diisi");
+      alert("⚠️ Nama lokasi harus diisi");
       return;
     }
     setModalStep(2);
@@ -734,7 +743,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       (cat) => cat.nama_kategori === selectedKategori,
     );
     if (!selectedCategory) {
-      alert("âš ï¸ Kategori belum tersedia. Silakan refresh halaman.");
+      alert("⚠️ Kategori belum tersedia. Silakan refresh halaman.");
       return;
     }
 
@@ -768,7 +777,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       const result = await backendResponse.json();
       if (!backendResponse.ok) {
         alert(
-          "âŒ Gagal menyimpan data: " +
+          "❌ Gagal menyimpan data: " +
             (result?.message ||
               backendResponse.statusText ||
               "Respons server gagal"),
@@ -1259,6 +1268,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   );
 
   const pendingCount = markers.filter((m) => m.status === "Pending").length;
+  const pendingMarkers = markers.filter((m) => m.status === "Pending");
 
   return (
     <div
@@ -2598,6 +2608,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  gap: "16px",
                 }}
               >
                 <h2
@@ -2609,27 +2620,39 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     gap: "8px",
                   }}
                 >
-                  <Table size={18} /> Tabel Marker Disetujui (
-                  {approvedMarkers.length} entri)
+                  <Table size={18} /> Tabel Marker Menunggu Persetujuan (
+                  {pendingMarkers.length} entri)
                 </h2>
-                <button
-                  onClick={() => setActiveView("map")}
+                <span
                   style={{
-                    padding: "8px 16px",
-                    background: "#6c757d",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
+                    background: "#f0f4ff",
+                    color: "#2c3e50",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    fontWeight: "700",
+                    fontSize: "13px",
                   }}
                 >
-                  <ArrowLeft size={14} /> Kembali ke Peta
-                </button>
+                  Pending: {pendingMarkers.length}
+                </span>
               </div>
+              <button
+                onClick={() => setActiveView("map")}
+                style={{
+                  padding: "8px 16px",
+                  background: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <ArrowLeft size={14} /> Kembali ke Peta
+              </button>
             </div>
             <table
               style={{
@@ -2652,11 +2675,11 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   <th style={{ padding: "12px", textAlign: "left" }}>
                     Pemilik
                   </th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
+                  <th style={{ padding: "12px", textAlign: "left" }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {approvedMarkers.length === 0 ? (
+                {pendingMarkers.length === 0 ? (
                   <tr>
                     <td
                       colSpan="6"
@@ -2666,41 +2689,59 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         color: "#888",
                       }}
                     >
-                      Belum ada marker yang disetujui.
+                      Tidak ada marker yang menunggu persetujuan.
                     </td>
                   </tr>
                 ) : (
-                  approvedMarkers.map((marker, index) => (
+                  pendingMarkers.map((marker, index) => (
                     <tr
                       key={marker.id}
                       style={{ borderBottom: "1px solid #eee" }}
                     >
                       <td style={{ padding: "12px" }}>{index + 1}</td>
                       <td style={{ padding: "12px", fontWeight: "bold" }}>
-                        {marker.nama}
+                        {marker.name}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        {marker.kategori?.nama_kategori || "-"}
+                        {marker.kategori || "-"}
                       </td>
                       <td style={{ padding: "12px" }}>
                         {marker.alamat || "-"}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        {marker.pemilik?.username || "-"}
+                        {marker.pemilik || "-"}
                       </td>
                       <td style={{ padding: "12px" }}>
-                        <span
-                          style={{
-                            background: "#27ae60",
-                            color: "white",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          âœ… {marker.status}
-                        </span>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            onClick={() => handleApprove(marker.id)}
+                            style={{
+                              padding: "8px 12px",
+                              background: "#27ae60",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                              fontWeight: "700",
+                            }}
+                          >
+                            Setujui
+                          </button>
+                          <button
+                            onClick={() => handleReject(marker.id)}
+                            style={{
+                              padding: "8px 12px",
+                              background: "#e74c3c",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: "pointer",
+                              fontWeight: "700",
+                            }}
+                          >
+                            Tolak
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
