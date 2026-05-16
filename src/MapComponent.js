@@ -1269,25 +1269,47 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
   const pendingCount = markers.filter((m) => m.status === "Pending").length;
   const pendingMarkers = markers.filter((m) => m.status === "Pending");
+  // Sidebar nav state
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+
+  // Sidebar nav items
+  const SIDEBAR_W_COLLAPSED = 64;
+  const SIDEBAR_W_EXPANDED = 240;
+
+  const navItems = [
+    ...(authKey ? [
+      { id: "map",     icon: <MapPin size={20}/>,      label: "Peta",            onClick: () => { setActiveView("map"); setSidebarMarker(null); } },
+      ...(userRole !== "admin" ? [
+        { id: "explore", icon: <Compass size={20}/>,    label: showExplore ? "Tutup Eksplorasi" : "Eksplorasi", onClick: () => setShowExplore(!showExplore), active: showExplore },
+      ] : []),
+      ...(userRole === "admin" ? [
+        { id: "status",  icon: <CheckCircle size={20}/>, label: "Status Kontributor", badge: pendingCount, onClick: () => setActiveView("status") },
+        { id: "library", icon: <Table size={20}/>,       label: "Pustaka Data",    onClick: () => setActiveView("library") },
+      ] : []),
+    ] : []),
+    { id: "filter",  icon: <Filter size={20}/>,      label: "Filter Kategori", onClick: () => setIsFilterDropdownOpen(!isFilterDropdownOpen) },
+    { id: "layer",   icon: <Layers size={20}/>,      label: tileLayer === "street" ? "Ganti ke Satelit" : "Ganti ke Peta", onClick: () => setTileLayer(t => t === "street" ? "satellite" : "street") },
+    { id: "locate",  icon: <Compass size={20}/>,     label: "Lokasi Saya",     onClick: () => { if (userLocation && mapInstance) mapInstance.flyTo(userLocation, 16, { animate: true, duration: 1.2 }); } },
+    ...(authKey ? [
+      { id: "routing", icon: <MapPin size={20}/>,     label: routingEnabled ? "Matikan Routing" : "Mode Routing", onClick: () => { const n = !routingEnabled; setRoutingEnabled(n); if (n) setRoutingStep(1); }, active: routingEnabled },
+      { id: "add",     icon: <Plus size={20}/>,        label: isEditMode ? "Batal Tambah" : "Tambah Marker",  onClick: () => setIsEditMode(!isEditMode), active: isEditMode },
+    ] : []),
+  ];
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        fontFamily: "sans-serif",
-        position: "relative",
-      }}
-    >
+    <div style={{ height: "100vh", fontFamily: "sans-serif", position: "relative", display: "flex" }}>
       <style>{`
-        .leaflet-top {
-          top: 90px !important;
+        .leaflet-top { top: 10px !important; }
+        .leaflet-left { left: ${SIDEBAR_W_COLLAPSED + 10}px !important; }
+        .cluster { background-color: #2ecc71 !important; }
+        .cluster div { background-color: #27ae60 !important; }
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
         }
-        .cluster {
-          background-color: #2ecc71 !important;
-        }
-        .cluster div {
-          background-color: #27ae60 !important;
-        }
+        .attr-row:last-child { border-bottom: none !important; }
+        .nav-item:hover { background: rgba(255,255,255,0.12) !important; }
+        .nav-item-active { background: rgba(255,255,255,0.18) !important; }
       `}</style>
 
       {/* MODAL REJECT â€” Admin isi alasan penolakan */}
@@ -1773,417 +1795,203 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         </div>
       )}
 
-      {/* NAVBAR */}
-      <header
+      {/* ===== SIDEBAR KIRI ===== */}
+      <nav
+        onMouseEnter={() => setSidebarExpanded(true)}
+        onMouseLeave={() => setSidebarExpanded(false)}
         style={{
-          height: "70px",
-          backgroundColor: "#ffffff",
-          borderRadius: "15px",
-          position: "absolute",
-          top: "15px",
-          left: "15px",
-          right: "15px",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: sidebarExpanded ? SIDEBAR_W_EXPANDED : SIDEBAR_W_COLLAPSED,
+          background: "linear-gradient(180deg, #0d47a1 0%, #1a237e 100%)",
+          zIndex: 1500,
           display: "flex",
-          alignItems: "center",
-          padding: "0 30px",
-          justifyContent: "space-between",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-          zIndex: 1100,
+          flexDirection: "column",
+          transition: "width 0.25s cubic-bezier(.4,0,.2,1)",
+          overflow: "hidden",
+          boxShadow: "4px 0 20px rgba(0,0,0,0.25)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <div
-            style={{
-              background: "#f4f6f9",
-              padding: "8px",
-              borderRadius: "8px",
-              display: "flex",
-              border: "1px solid #eaeaea",
-            }}
-          >
-            <HeartPulse size={24} color="#d63031" />
+        {/* Logo */}
+        <div style={{
+          height: "70px",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+          gap: "12px",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          flexShrink: 0,
+        }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: "8px",
+            background: "rgba(255,255,255,0.15)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <HeartPulse size={18} color="white" />
           </div>
-          <div>
-            <h1
-              style={{
-                margin: 0,
-                color: "#2c3e50",
-                fontSize: "20px",
-                letterSpacing: "1px",
-                fontWeight: 800,
-              }}
-            >
-              Peta Fasilitas Kesehatan
-            </h1>
-            <p
-              style={{
-                margin: 0,
-                color: "#7f8c8d",
-                fontSize: "11px",
-                letterSpacing: "1px",
-                textTransform: "uppercase",
-              }}
-            >
-              {authKey
-                ? userRole === "admin"
-                  ? "Admin Mode"
-                  : "Mode Kontributor"
-                : "Mode Guest"}
-            </p>
-          </div>
-        </div>
-
-        <div
-          style={{
-            position: "relative",
-            flex: 1,
-            maxWidth: "450px",
-            margin: "0 30px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              background: "#f4f6f9",
-              borderRadius: "30px",
-              padding: "8px 15px",
-              border: "1px solid #eaeaea",
-            }}
-          >
-            <Search size={18} color="#95a5a6" style={{ marginRight: "10px" }} />
-            <input
-              type="text"
-              placeholder="Cari fasilitas kesehatan..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                border: "none",
-                outline: "none",
-                width: "100%",
-                fontSize: "14px",
-                background: "transparent",
-              }}
-            />
-            {searchQuery && (
-              <X
-                size={16}
-                color="#ccc"
-                style={{ cursor: "pointer" }}
-                onClick={() => setSearchQuery("")}
-              />
-            )}
-          </div>
-          {(searchResults.length > 0 || isSearchSearching) && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                marginTop: "10px",
-                background: "#fff",
-                borderRadius: "8px",
-                boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-                maxHeight: "200px",
-                overflowY: "auto",
-                zIndex: 1200,
-              }}
-            >
-              {isSearchSearching ? (
-                <div
-                  style={{
-                    padding: "12px 15px",
-                    fontSize: "13px",
-                    color: "#777",
-                  }}
-                >
-                  Mencari lokasi...
-                </div>
-              ) : (
-                searchResults.map((res, i) => (
-                  <div
-                    key={i}
-                    onClick={() => handleExternalSearchClick(res)}
-                    style={{
-                      padding: "12px 15px",
-                      borderBottom: "1px solid #eee",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                    }}
-                  >
-                    {res.display_name}
-                  </div>
-                ))
-              )}
+          {sidebarExpanded && (
+            <div style={{ overflow: "hidden", whiteSpace: "nowrap" }}>
+              <div style={{ color: "#fff", fontWeight: 800, fontSize: "14px", letterSpacing: "0.3px" }}>
+                Peta Kesehatan
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.55)", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px" }}>
+                {authKey ? (userRole === "admin" ? "Admin" : "Kontributor") : "Guest"}
+              </div>
             </div>
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => {
-                setIsFilterDropdownOpen(!isFilterDropdownOpen);
-                setIsLoginDropdownOpen(false);
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                background: "#f4f6f9",
-                border: "1px solid #eaeaea",
-                color: "#2c3e50",
-                padding: "10px 16px",
-                borderRadius: "30px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              <Filter size={16} /> Filter
-            </button>
-            {isFilterDropdownOpen && (
-              <div
+        {/* Search bar (hanya saat expanded) */}
+        {sidebarExpanded && (
+          <div style={{ padding: "12px 12px 4px", flexShrink: 0 }}>
+            <div style={{
+              display: "flex", alignItems: "center",
+              background: "rgba(255,255,255,0.12)",
+              borderRadius: "8px", padding: "8px 10px", gap: "8px",
+            }}>
+              <Search size={14} color="rgba(255,255,255,0.7)" />
+              <input
+                type="text"
+                placeholder="Cari fasilitas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: 0,
-                  marginTop: "10px",
-                  background: "#fff",
-                  borderRadius: "8px",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-                  width: "250px",
-                  padding: "15px",
-                  zIndex: 1200,
+                  background: "none", border: "none", outline: "none",
+                  color: "#fff", fontSize: "13px", width: "100%",
                 }}
-              >
-                <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
-                  Filter Kategori
-                </h4>
-                {kategoriKesehatan.map((kat) => (
-                  <label
-                    key={kat}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: "12px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filters[kat] !== false}
-                      onChange={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          [kat]: !prev[kat],
-                        }))
-                      }
-                      style={{
-                        marginRight: "10px",
-                        transform: "scale(1.2)",
-                        accentColor: "#3498db",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "14px",
-                        color: "#495057",
-                        fontWeight: "600",
-                      }}
-                    >
-                      {kat}
-                    </span>
-                  </label>
+              />
+              {searchQuery && (
+                <X size={13} color="rgba(255,255,255,0.6)" style={{ cursor: "pointer", flexShrink: 0 }}
+                  onClick={() => setSearchQuery("")} />
+              )}
+            </div>
+            {/* Search results */}
+            {(searchResults.length > 0 || isSearchSearching) && (
+              <div style={{
+                background: "#fff", borderRadius: "8px", marginTop: "6px",
+                boxShadow: "0 8px 20px rgba(0,0,0,0.2)", maxHeight: "180px", overflowY: "auto",
+              }}>
+                {isSearchSearching ? (
+                  <div style={{ padding: "10px 12px", fontSize: "12px", color: "#777" }}>Mencari...</div>
+                ) : searchResults.map((res, i) => (
+                  <div key={i} onClick={() => handleExternalSearchClick(res)}
+                    style={{ padding: "10px 12px", borderBottom: "1px solid #eee", cursor: "pointer", fontSize: "12px" }}>
+                    {res.display_name}
+                  </div>
                 ))}
               </div>
             )}
           </div>
+        )}
 
-          {userRole !== "admin" && authKey && (
-            <button
-              onClick={() => setShowExplore(!showExplore)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                background: showExplore ? "#007bff" : "#f4f6f9",
-                border: "1px solid #eaeaea",
-                color: showExplore ? "white" : "#2c3e50",
-                padding: "10px 16px",
-                borderRadius: "30px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              <Compass size={16} /> Eksplorasi
-            </button>
-          )}
-
-          {userRole === "admin" && (
-            <button
-              onClick={() =>
-                setActiveView(activeView === "map" ? "table" : "map")
-              }
-              style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                background: activeView === "table" ? "#007bff" : "#f4f6f9",
-                border: "1px solid #eaeaea",
-                color: activeView === "table" ? "white" : "#2c3e50",
-                padding: "10px 16px",
-                borderRadius: "30px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              <Table size={16} /> Tabel
-              {pendingCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-6px",
-                    right: "-6px",
-                    background: "#e74c3c",
-                    color: "white",
-                    fontSize: "10px",
-                    fontWeight: "bold",
-                    padding: "2px 6px",
-                    borderRadius: "10px",
-                    border: "2px solid white",
-                  }}
-                >
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          )}
-
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => {
-                setIsLoginDropdownOpen(!isLoginDropdownOpen);
-                setIsFilterDropdownOpen(false);
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                background: authKey ? "#2ecc71" : "#3498db",
-                border: "none",
-                color: "#fff",
-                padding: "10px 16px",
-                borderRadius: "30px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              {authKey ? <User size={16} /> : <LogIn size={16} />}
-              {authKey ? (userName ? userName : "Menu") : "Login"}
-            </button>
-            {isLoginDropdownOpen && authKey && (
-              <div
+        {/* Nav Items */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+          {navItems.map((item) => {
+            const isActive = item.active || activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                className={`nav-item${isActive ? " nav-item-active" : ""}`}
+                onClick={item.onClick}
+                title={!sidebarExpanded ? item.label : undefined}
                 style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: 0,
-                  marginTop: "10px",
-                  background: "#fff",
-                  borderRadius: "8px",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-                  width: "280px",
-                  padding: "20px",
-                  zIndex: 1200,
+                  width: "100%", display: "flex", alignItems: "center",
+                  gap: "12px", padding: "11px 16px",
+                  background: isActive ? "rgba(255,255,255,0.18)" : "transparent",
+                  border: "none", color: "#fff", cursor: "pointer",
+                  fontSize: "13px", fontWeight: isActive ? 700 : 500,
+                  textAlign: "left", transition: "background 0.15s",
+                  position: "relative", whiteSpace: "nowrap",
+                  borderLeft: isActive ? "3px solid #64b5f6" : "3px solid transparent",
                 }}
               >
-                <div>
-                  <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
-                    Menu {userRole === "admin" ? "Admin" : "Kontributor"}
-                  </h4>
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      padding: "12px",
-                      background: "#e74c3c",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    <LogOut size={16} /> LOGOUT
-                  </button>
-                </div>
-              </div>
-            )}
-            {isLoginDropdownOpen && !authKey && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: 0,
-                  marginTop: "10px",
-                  background: "#fff",
-                  borderRadius: "8px",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-                  width: "280px",
-                  padding: "20px",
-                  zIndex: 1200,
-                }}
-              >
-                <div style={{ textAlign: "center" }}>
-                  <h4 style={{ margin: "0 0 15px 0", color: "#333" }}>
-                    Akses Dibatasi
-                  </h4>
-                  <p
-                    style={{
-                      margin: "0 0 15px 0",
-                      color: "#666",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Anda perlu login untuk mengakses fitur peta.
-                  </p>
-                  <button
-                    onClick={() => navigate("/login")}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      background: "#3498db",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Pergi ke Login
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+                <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.8 }}>{item.icon}</span>
+                {sidebarExpanded && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>}
+                {item.badge > 0 && (
+                  <span style={{
+                    position: "absolute", top: "8px",
+                    left: sidebarExpanded ? "auto" : "36px",
+                    right: sidebarExpanded ? "12px" : "auto",
+                    background: "#e74c3c", color: "#fff",
+                    fontSize: "10px", fontWeight: 700,
+                    padding: "1px 5px", borderRadius: "10px",
+                    border: "2px solid #0d47a1",
+                  }}>{item.badge}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </header>
 
-      {/* MAP CONTROLS */}
+        {/* Filter dropdown (expanded) */}
+        {sidebarExpanded && isFilterDropdownOpen && (
+          <div style={{
+            padding: "12px", borderTop: "1px solid rgba(255,255,255,0.1)",
+            maxHeight: "280px", overflowY: "auto", flexShrink: 0,
+          }}>
+            <p style={{ margin: "0 0 8px", color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px" }}>
+              Filter Kategori
+            </p>
+            {kategoriKesehatan.map((kat) => (
+              <label key={kat} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", cursor: "pointer" }}>
+                <input type="checkbox" checked={filters[kat] !== false}
+                  onChange={() => setFilters((prev) => ({ ...prev, [kat]: !prev[kat] }))}
+                  style={{ accentColor: "#64b5f6" }} />
+                <span style={{ color: "#fff", fontSize: "12px" }}>{kat}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {/* User section bawah */}
+        <div style={{
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+          padding: "10px 12px", flexShrink: 0,
+        }}>
+          {authKey ? (
+            <button
+              onClick={handleLogout}
+              title={!sidebarExpanded ? "Logout" : undefined}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: "12px",
+                padding: "10px", background: "rgba(231,76,60,0.2)",
+                border: "1px solid rgba(231,76,60,0.4)", borderRadius: "8px",
+                color: "#ff8a80", cursor: "pointer", fontSize: "13px", fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <LogOut size={18} style={{ flexShrink: 0 }} />
+              {sidebarExpanded && <span>{userName || "Logout"}</span>}
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              title={!sidebarExpanded ? "Login" : undefined}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: "12px",
+                padding: "10px", background: "rgba(255,255,255,0.12)",
+                border: "none", borderRadius: "8px",
+                color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <LogIn size={18} style={{ flexShrink: 0 }} />
+              {sidebarExpanded && <span>Login / Daftar</span>}
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* ===== MAIN CONTENT ===== */}
       <div
-        onClick={() => {
-          setIsFilterDropdownOpen(false);
-          setIsLoginDropdownOpen(false);
-        }}
+        onClick={() => { setIsFilterDropdownOpen(false); setIsLoginDropdownOpen(false); }}
         style={{
           position: "absolute",
           top: 0,
-          left: 0,
+          left: SIDEBAR_W_COLLAPSED,
           right: 0,
           bottom: 0,
           overflow: "hidden",
