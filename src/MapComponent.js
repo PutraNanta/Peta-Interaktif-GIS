@@ -833,11 +833,11 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         setFotoUrl("");
         setFotoFile(null);
       } else {
-        alert('Gagal: ' + result.message);
+        alert("Gagal: " + result.message);
       }
     } catch (err) {
       console.error(err);
-      alert('Error saat menyimpan data');
+      alert("Error saat menyimpan data");
     }
   };
 
@@ -1173,9 +1173,17 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     if (selectedKategori === "Fisioterapi & Rehabilitasi")
       return (
         <div style={wrapStyle("#ede7f6", "#d1c4e9")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ï¿½ï¸ Detail Fisioterapi & Rehabilitasi
-            Detail Fisioterapi & Rehabilitasi
+          <h4
+            style={{
+              margin: "0 0 12px",
+              color: categoryColor,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <HeartPulse size={16} /> Detail Fisioterapi & Rehabilitasi
+          </h4>
           <F
             label="Spesialisasi"
             name="spesialisasi_rehab"
@@ -1250,7 +1258,6 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     },
   );
 
-  const pendingCount = markers.filter((m) => m.status === 'Pending').length;
   const pendingCount = markers.filter((m) => m.status === "Pending").length;
 
   return (
@@ -1382,7 +1389,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   fontSize: "13px",
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px"
+                  gap: "6px",
                 }}
               >
                 <XCircle size={14} /> Konfirmasi Tolak
@@ -2401,22 +2408,41 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     marginBottom: "4px",
                     display: "flex",
                     alignItems: "center",
-                    gap: "4px"
+                    gap: "4px",
                   }}
                 >
                   <CheckCircle size={14} /> Rute ditemukan
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                >
                   <MapPin size={14} /> Jarak: <b>{routeInfo.distanceKm} km</b>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
-                  <Clock size={14} /> Estimasi: <b>~{routeInfo.durationMin} menit</b>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    marginTop: "4px",
+                  }}
+                >
+                  <Clock size={14} /> Estimasi:{" "}
+                  <b>~{routeInfo.durationMin} menit</b>
                 </div>
               </div>
             )}
             {startPoint && endPoint && routeInfo === null && (
-              <div style={{ fontSize: "13px", color: "#e74c3c", display: "flex", alignItems: "center", gap: "4px" }}>
-                <AlertTriangle size={14} /> Rute tidak ditemukan, menampilkan garis lurus
+              <div
+                style={{
+                  fontSize: "13px",
+                  color: "#e74c3c",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <AlertTriangle size={14} /> Rute tidak ditemukan, menampilkan
+                garis lurus
               </div>
             )}
             {(startPoint || endPoint) && (
@@ -2439,7 +2465,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   fontWeight: "bold",
                   display: "flex",
                   alignItems: "center",
-                  gap: "4px"
+                  gap: "4px",
                 }}
               >
                 <Trash2 size={14} /> Reset Titik
