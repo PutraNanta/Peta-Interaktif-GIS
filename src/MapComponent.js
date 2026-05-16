@@ -1,4 +1,4 @@
-import {
+﻿import {
   MapContainer,
   TileLayer,
   Marker,
@@ -52,6 +52,7 @@ import {
   Circle,
   Map as MapIcon,
   Navigation,
+  Settings,
 } from "lucide-react";
 import { renderToString } from "react-dom/server";
 
@@ -306,7 +307,7 @@ function OSRMRoute({ from, to, onRouteInfo }) {
   );
 }
 
-// ===== FIELD COMPONENT â€” di luar MapComponent agar tidak re-mount setiap render =====
+// ===== FIELD COMPONENT Ã¢â‚¬â€ di luar MapComponent agar tidak re-mount setiap render =====
 const inputStyle = {
   width: "100%",
   padding: "10px",
@@ -417,7 +418,11 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // State untuk modal penolakan admin
   const [rejectModal, setRejectModal] = useState(null); // { markerId } | null
   const [rejectAlasan, setRejectAlasan] = useState("");
-  // Sidebar info marker (klik marker â†’ tampil sidebar)
+  // State manajemen kategori (admin)
+  const [kategoriModal, setKategoriModal] = useState(null); // null | { mode: 'add'|'edit', data? }
+  const [katForm, setKatForm] = useState({ nama_kategori: '', warna: '#3498db', fields: [] });
+  const [katFieldDraft, setKatFieldDraft] = useState({ key: '', label: '', type: 'text', options: '' });
+  // Sidebar info marker (klik marker Ã¢â€ â€™ tampil sidebar)
   const [sidebarMarker, setSidebarMarker] = useState(null);
   // Field foto untuk form tambah/edit
   const [fotoUrl, setFotoUrl] = useState("");
@@ -425,7 +430,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Step untuk 2-step modal (1 = nama/kategori/foto, 2 = atribut)
   const [modalStep, setModalStep] = useState(1);
 
-  // Check auth on mount â€” guest boleh tanpa login
+  // Check auth on mount Ã¢â‚¬â€ guest boleh tanpa login
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (token) {
@@ -434,7 +439,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       setUserName(localStorage.getItem("userName") || "");
       setCurrentUserId(localStorage.getItem("userId"));
     }
-    // Jika tidak ada token â†’ tetap di peta sebagai Guest
+    // Jika tidak ada token Ã¢â€ â€™ tetap di peta sebagai Guest
   }, []);
 
   // Form States
@@ -651,7 +656,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     navigate("/login");
   };
 
-  // Handle map click â€” buka modal tambah marker baru
+  // Handle map click Ã¢â‚¬â€ buka modal tambah marker baru
   const handleMapClick = async (lat, lng) => {
     try {
       const response = await fetch(
@@ -677,7 +682,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Handle edit click â€” buka modal edit
+  // Handle edit click Ã¢â‚¬â€ buka modal edit
   const handleEditClick = (pos) => {
     if (!authKey) return;
     setSidebarMarker(null);
@@ -698,7 +703,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Helper: Move to step 2 of modal
   const handleNextStep = () => {
     if (!customName.trim()) {
-      alert("⚠️ Nama lokasi harus diisi");
+      alert("âš ï¸ Nama lokasi harus diisi");
       return;
     }
     setModalStep(2);
@@ -743,7 +748,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       (cat) => cat.nama_kategori === selectedKategori,
     );
     if (!selectedCategory) {
-      alert("⚠️ Kategori belum tersedia. Silakan refresh halaman.");
+      alert("âš ï¸ Kategori belum tersedia. Silakan refresh halaman.");
       return;
     }
 
@@ -777,7 +782,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       const result = await backendResponse.json();
       if (!backendResponse.ok) {
         alert(
-          "❌ Gagal menyimpan data: " +
+          "âŒ Gagal menyimpan data: " +
             (result?.message ||
               backendResponse.statusText ||
               "Respons server gagal"),
@@ -814,7 +819,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           setMarkers((prev) =>
             prev.map((m) => (m.id === modalData.id ? savedMarker : m)),
           );
-          // Jika sebelumnya Rejected dan sekarang jadi Pending â†’ beri tahu user
+          // Jika sebelumnya Rejected dan sekarang jadi Pending Ã¢â€ â€™ beri tahu user
           const prevMarker = markers.find((m) => m.id === modalData.id);
           if (
             prevMarker?.status === "Rejected" &&
@@ -870,6 +875,66 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     } catch (err) {
       console.log(err);
     }
+  };
+
+  // ===== KATEGORI CRUD HANDLERS =====
+  const handleSaveKategori = async () => {
+    if (!katForm.nama_kategori.trim()) { alert("Nama kategori wajib diisi"); return; }
+    try {
+      const isEdit = kategoriModal?.mode === "edit";
+      const url = isEdit
+        ? `http://localhost:5000/api/kategori/${kategoriModal.data.id}`
+        : "http://localhost:5000/api/kategori";
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authKey}` },
+        body: JSON.stringify({ ...katForm, master_tipe_id: kategoriModal?.data?.master_tipe_id || 1 }),
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        // Refresh kategoriOptions
+        const r2 = await fetch("http://localhost:5000/api/kategori");
+        const d2 = await r2.json();
+        if (d2.status === "success") setKategoriOptions(d2.data);
+        setKategoriModal(null);
+        setKatForm({ nama_kategori: "", warna: "#3498db", fields: [] });
+        alert(isEdit ? "Kategori diperbarui" : "Kategori ditambahkan");
+      } else { alert("Gagal: " + result.message); }
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  const handleDeleteKategori = async (id) => {
+    if (!window.confirm("Yakin hapus kategori ini?")) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/kategori/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${authKey}` },
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        setKategoriOptions((prev) => prev.filter((k) => k.id !== id));
+      } else { alert("Gagal: " + result.message); }
+    } catch (e) { alert("Error: " + e.message); }
+  };
+
+  const addKatField = () => {
+    if (!katFieldDraft.key.trim() || !katFieldDraft.label.trim()) {
+      alert("Key dan Label atribut wajib diisi"); return;
+    }
+    const newField = {
+      key: katFieldDraft.key.trim().replace(/\s+/g, "_").toLowerCase(),
+      label: katFieldDraft.label.trim(),
+      type: katFieldDraft.type,
+      ...(katFieldDraft.type === "select" && katFieldDraft.options
+        ? { options: katFieldDraft.options.split(",").map((o) => o.trim()).filter(Boolean) }
+        : {}),
+    };
+    setKatForm((prev) => ({ ...prev, fields: [...prev.fields, newField] }));
+    setKatFieldDraft({ key: "", label: "", type: "text", options: "" });
+  };
+
+  const removeKatField = (idx) => {
+    setKatForm((prev) => ({ ...prev, fields: prev.fields.filter((_, i) => i !== idx) }));
   };
 
   const handleApprove = async (markerId) => {
@@ -957,260 +1022,47 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Handler stabil untuk DynField â€” tidak membuat object baru setiap render
+  // Handler stabil untuk DynField — tidak membuat object baru setiap render
   const handleDynChange = (name, value) => {
     setDynamicAttrs((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Render dynamic form fields per kategori
+  // Render dynamic form fields — berbasis data fields dari DB/kategoriOptions
   const renderDynamicFields = () => {
-    const categoryColor = colorMap[selectedKategori] || "#000";
-    const F = (props) => (
-      <DynField
-        {...props}
-        value={dynamicAttrs[props.name] ?? ""}
-        onChange={handleDynChange}
-      />
+    const selectedCategory = kategoriOptions.find(
+      (cat) => cat.nama_kategori === selectedKategori,
     );
+    const fields = selectedCategory?.fields || [];
+    if (!fields.length) return null;
 
-    const wrapStyle = (bg, border) => ({
-      marginTop: 15,
-      background: bg,
-      padding: 15,
-      borderRadius: 8,
-      border: `1px solid ${border}`,
-    });
+    const categoryColor = selectedCategory?.warna || colorMap[selectedKategori] || "#1a73e8";
 
-    if (selectedKategori === "Rumah Sakit Umum")
-      return (
-        <div style={wrapStyle("#ffebee", "#ffcdd2")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ðŸ¥ Detail Rumah Sakit Umum
-          </h4>
-          <F label="Kelas RS" name="kelas_rs" options={["A", "B", "C", "D"]} />
-          <F label="Status" name="status_rs" options={["Negeri", "Swasta"]} />
-          <F label="IGD" name="igd" options={["Ya", "Tidak"]} />
-          <F
-            label="Spesialisasi (pisahkan koma)"
-            name="spesialisasi"
-            placeholder="Anak, Kandungan, ..."
+    return (
+      <div style={{
+        marginTop: 14,
+        background: "#f8f9fa",
+        padding: 14,
+        borderRadius: 10,
+        border: `1px solid ${categoryColor}44`,
+      }}>
+        <h4 style={{ margin: "0 0 12px", color: categoryColor, fontSize: "13px", fontWeight: 700 }}>
+          Detail {selectedKategori}
+        </h4>
+        {fields.map((field) => (
+          <DynField
+            key={field.key}
+            label={field.label}
+            name={field.key}
+            type={field.type}
+            placeholder={field.placeholder || ""}
+            options={field.options}
+            value={dynamicAttrs[field.key] ?? ""}
+            onChange={handleDynChange}
           />
-          <F
-            label="Fasilitas (pisahkan koma)"
-            name="fasilitas"
-            placeholder="ICU, NICU, Radiologi, ..."
-          />
-          <F
-            label="Kapasitas Tempat Tidur"
-            name="kapasitas_tt"
-            type="number"
-            placeholder="100"
-          />
-          <F label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="24 Jam"
-          />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    if (selectedKategori === "Rumah Sakit Khusus")
-      return (
-        <div style={wrapStyle("#fff3e0", "#ffe0b2")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ðŸ¥ Detail Rumah Sakit Khusus
-          </h4>
-          <F
-            label="Jenis Spesialisasi"
-            name="jenis_spesialisasi"
-            options={[
-              "Jiwa",
-              "Ibu & Anak",
-              "Kanker",
-              "Bedah",
-              "Jantung",
-              "Paru",
-              "Mata",
-              "THT",
-            ]}
-          />
-          <F label="Status" name="status_rs" options={["Negeri", "Swasta"]} />
-          <F label="IGD" name="igd" options={["Ya", "Tidak"]} />
-          <F label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 20:00"
-          />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    if (selectedKategori === "Klinik")
-      return (
-        <div style={wrapStyle("#e3f2fd", "#bbdefb")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ðŸ¥ Detail Klinik
-          </h4>
-          <F
-            label="Jenis Klinik"
-            name="jenis_klinik"
-            options={["Pratama", "Utama"]}
-          />
-          <F
-            label="Layanan (pisahkan koma)"
-            name="layanan"
-            placeholder="Umum, Gigi, Kecantikan, ..."
-          />
-          <F
-            label="Jenis Dokter"
-            name="jenis_dokter"
-            placeholder="dr. Budi, dr. Sari, ..."
-          />
-          <F label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 20:00"
-          />
-          <F label="Hari Buka" name="hari_buka" placeholder="Senin - Sabtu" />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    if (selectedKategori === "Puskesmas")
-      return (
-        <div style={wrapStyle("#f1f8e9", "#c5e1a5")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            Detail Puskesmas
-          </h4>
-          <F
-            label="Jenis"
-            name="jenis"
-            options={["Induk", "Pembantu", "Keliling"]}
-          />
-          <F
-            label="Wilayah Kerja"
-            name="wilayah_kerja"
-            placeholder="Desa A, Desa B"
-          />
-          <F label="Rawat Inap" name="rawat_inap" options={["Ya", "Tidak"]} />
-          <F label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <F
-            label="Tersedia Bidan"
-            name="tersedia_bidan"
-            options={["Ya", "Tidak"]}
-          />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 16:00"
-          />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    if (selectedKategori === "Apotek")
-      return (
-        <div style={wrapStyle("#e0f7fa", "#b2ebf2")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            Detail Apotek
-          </h4>
-          <F
-            label="Jaringan"
-            name="jaringan"
-            options={["Kimia Farma", "K24", "Guardian", "Mandiri", "Lainnya"]}
-          />
-          <F label="Apoteker" name="apoteker" placeholder="Apt. Budi" />
-          <F label="Drive Thru" name="drive_thru" options={["Ya", "Tidak"]} />
-          <F label="Buka 24 Jam" name="buka_24_jam" options={["Ya", "Tidak"]} />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 22:00"
-          />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    if (selectedKategori === "Klinik Gigi")
-      return (
-        <div style={wrapStyle("#fffde7", "#fff9c4")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            Detail Klinik Gigi
-          </h4>
-          <F
-            label="Layanan Gigi (pisahkan koma)"
-            name="layanan_gigi"
-            placeholder="Umum, Kawat Gigi, Implan, Estetik"
-          />
-          <F label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <F label="Nama Dokter" name="nama_dokter" placeholder="drg. Sari" />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="09:00 - 17:00"
-          />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    if (selectedKategori === "Bidan & Klinik Bersalin")
-      return (
-        <div style={wrapStyle("#fce4ec", "#f8bbd0")}>
-          <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            Detail Bidan & Klinik Bersalin
-          </h4>
-          <F
-            label="Layanan (pisahkan koma)"
-            name="layanan_bidan"
-            placeholder="Persalinan, USG, KB, Imunisasi"
-          />
-          <F label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <F label="Buka 24 Jam" name="buka_24_jam" options={["Ya", "Tidak"]} />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 16:00"
-          />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    if (selectedKategori === "Fisioterapi & Rehabilitasi")
-      return (
-        <div style={wrapStyle("#ede7f6", "#d1c4e9")}>
-          <h4
-            style={{
-              margin: "0 0 12px",
-              color: categoryColor,
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <HeartPulse size={16} /> Detail Fisioterapi & Rehabilitasi
-          </h4>
-          <F
-            label="Spesialisasi"
-            name="spesialisasi_rehab"
-            options={["Fisioterapi", "Napza", "Geriatri", "Stroke", "Pediatri"]}
-          />
-          <F label="BPJS" name="bpjs" options={["Ya", "Tidak"]} />
-          <F
-            label="Jam Operasional"
-            name="jam_operasional"
-            placeholder="08:00 - 16:00"
-          />
-          <F label="Telepon" name="telepon" placeholder="08123456789" />
-        </div>
-      );
-
-    return null;
+        ))}
+      </div>
+    );
   };
-
   // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -1272,20 +1124,21 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Sidebar nav state
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
-  // Sidebar nav items — admin: status kontributor, pustaka data, tambah marker, layer
+  // Sidebar nav items â€” admin: status kontributor, pustaka data, tambah marker, layer
   const SIDEBAR_W_COLLAPSED = 64;
   const SIDEBAR_W_EXPANDED = 220;
 
   const navItems = [
-    // Beranda — selalu ada, kembali ke peta utama
+    // Beranda â€” selalu ada, kembali ke peta utama
     { id: "map", icon: <Home size={20}/>, label: "Beranda", onClick: () => { setActiveView("map"); setSidebarMarker(null); setIsEditMode(false); } },
     ...(authKey ? [
       ...(userRole !== "admin" ? [
         { id: "explore", icon: <Compass size={20}/>, label: showExplore ? "Tutup Eksplorasi" : "Eksplorasi", onClick: () => setShowExplore(!showExplore), active: showExplore },
       ] : []),
       ...(userRole === "admin" ? [
-        { id: "status",  icon: <CheckCircle size={20}/>, label: "Status Kontributor", badge: pendingCount, onClick: () => setActiveView("status") },
-        { id: "library", icon: <Table size={20}/>,       label: "Pustaka Data",       onClick: () => setActiveView("library") },
+        { id: "status",   icon: <CheckCircle size={20}/>, label: "Status Kontributor", badge: pendingCount, onClick: () => setActiveView("status") },
+        { id: "library",  icon: <Table size={20}/>,       label: "Pustaka Data",       onClick: () => setActiveView("library") },
+        { id: "kategori", icon: <Settings size={20}/>,    label: "Kelola Kategori",    onClick: () => setActiveView("kategori") },
       ] : []),
       { id: "add", icon: isEditMode ? <X size={20}/> : <Plus size={20}/>, label: isEditMode ? "Batal Tambah" : "Tambah Marker", onClick: () => { setIsEditMode(!isEditMode); if (activeView !== "map") setActiveView("map"); }, active: isEditMode },
     ] : []),
@@ -1394,7 +1247,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         .nav-item-active { background: rgba(255,255,255,0.18) !important; }
       `}</style>
 
-      {/* MODAL REJECT â€” Admin isi alasan penolakan */}
+      {/* MODAL REJECT Ã¢â‚¬â€ Admin isi alasan penolakan */}
       {rejectModal && (
         <div
           style={{
@@ -1831,7 +1684,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         fontWeight: "bold",
                       }}
                     >
-                      ← Kembali
+                      â† Kembali
                     </button>
                   )}
                   <button
@@ -1877,7 +1730,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         </div>
       )}
 
-      {/* ===== SIDEBAR KIRI — putih, hover expand ===== */}
+      {/* ===== SIDEBAR KIRI â€” putih, hover expand ===== */}
       <nav
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
@@ -2042,8 +1895,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           overflow: "hidden",
         }}
       >
-        {/* ===== TOP BAR — Card dengan judul, search, filter ===== */}
-        <div style={{
+        {/* ===== TOP BAR â€” Card dengan judul, search, filter (hanya di map view) ===== */}
+        {activeView === "map" && <div style={{
           position: "absolute",
           top: "15px",
           left: `calc(50% + ${sidebarExpanded ? (SIDEBAR_W_EXPANDED - SIDEBAR_W_COLLAPSED) / 2 : 0}px)`,
@@ -2156,9 +2009,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               ))}
             </div>
           )}
-        </div>
+        </div>}
 
-        {/* Hapus Rute button — top right */}
+        {/* Hapus Rute button â€” top right */}
         {routeTarget && (
           <button
             onClick={(e) => { e.stopPropagation(); setRouteTarget(null); setLegacyRouteInfo(null); }}
@@ -2349,12 +2202,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
               {tileLayer === "street" ? (
                 <TileLayer
-                  attribution="Â© OSM"
+                  attribution="Ã‚Â© OSM"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
               ) : (
                 <TileLayer
-                  attribution="Â© Esri"
+                  attribution="Ã‚Â© Esri"
                   url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 />
               )}
@@ -2407,7 +2260,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                               setRoutingStep(0);
                             }
                           } else {
-                            // Klik marker â†’ buka sidebar info
+                            // Klik marker Ã¢â€ â€™ buka sidebar info
                             setSidebarMarker(pos);
                             setActiveMarkerId(pos.id);
                           }
@@ -2441,21 +2294,24 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
         {/* ===== VIEW: STATUS KONTRIBUTOR ===== */}
         {activeView === "status" && userRole === "admin" && (
-          <div style={{ height: "100%", padding: "28px", background: "#f8f9fa", overflowY: "auto" }}>
+          <div style={{
+            position: "absolute",
+            top: 0, bottom: 0,
+            left: sidebarExpanded ? SIDEBAR_W_EXPANDED - SIDEBAR_W_COLLAPSED : 0,
+            right: 0,
+            padding: "28px",
+            background: "#f8f9fa",
+            overflowY: "auto",
+            transition: "left 0.25s cubic-bezier(.4,0,.2,1)",
+          }}>
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-              <div>
-                <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <CheckCircle size={20} color="#1a73e8" /> Status Kontributor
-                </h2>
-                <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>
-                  {pendingMarkers.length} marker menunggu persetujuan
-                </p>
-              </div>
-              <button onClick={() => setActiveView("map")}
-                style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 16px", background: "#fff", border: "1px solid #e8eaed", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#5f6368" }}>
-                <ArrowLeft size={14} /> Kembali ke Peta
-              </button>
+            <div style={{ marginBottom: "24px" }}>
+              <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
+                <CheckCircle size={20} color="#1a73e8" /> Status Kontributor
+              </h2>
+              <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>
+                {pendingMarkers.length} marker menunggu persetujuan
+              </p>
             </div>
 
             {pendingMarkers.length === 0 ? (
@@ -2472,11 +2328,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     border: "1px solid #e8eaed", boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                     display: "flex", alignItems: "center", gap: "16px",
                   }}>
-                    {/* Nomor */}
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#f0f4ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700, fontSize: "13px", color: "#1a73e8" }}>
                       {index + 1}
                     </div>
-                    {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: "14px", color: "#1a1a2e", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {marker.name}
@@ -2487,14 +2341,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                           {marker.kategori || "-"}
                         </span>
                         <span>{marker.alamat?.substring(0, 50) || "-"}{marker.alamat?.length > 50 ? "..." : ""}</span>
-                        <span style={{ color: "#5f6368" }}>👤 {marker.pemilik || "-"}</span>
+                        <span style={{ color: "#5f6368" }}>ðŸ‘¤ {marker.pemilik || "-"}</span>
                       </div>
                     </div>
-                    {/* Badge pending */}
                     <span style={{ background: "#fff8e1", color: "#f39c12", border: "1px solid #ffe082", padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, flexShrink: 0 }}>
-                      ⏳ Pending
+                      â³ Pending
                     </span>
-                    {/* Aksi */}
                     <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
                       <button onClick={() => handleApprove(marker.id)}
                         style={{ padding: "8px 14px", background: "#27ae60", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
@@ -2514,21 +2366,24 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
         {/* ===== VIEW: PUSTAKA DATA ===== */}
         {activeView === "library" && userRole === "admin" && (
-          <div style={{ height: "100%", padding: "28px", background: "#f8f9fa", overflowY: "auto" }}>
+          <div style={{
+            position: "absolute",
+            top: 0, bottom: 0,
+            left: sidebarExpanded ? SIDEBAR_W_EXPANDED - SIDEBAR_W_COLLAPSED : 0,
+            right: 0,
+            padding: "28px",
+            background: "#f8f9fa",
+            overflowY: "auto",
+            transition: "left 0.25s cubic-bezier(.4,0,.2,1)",
+          }}>
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-              <div>
-                <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Table size={20} color="#1a73e8" /> Pustaka Data
-                </h2>
-                <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>
-                  {markers.length} total marker terdaftar
-                </p>
-              </div>
-              <button onClick={() => setActiveView("map")}
-                style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 16px", background: "#fff", border: "1px solid #e8eaed", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#5f6368" }}>
-                <ArrowLeft size={14} /> Kembali ke Peta
-              </button>
+            <div style={{ marginBottom: "24px" }}>
+              <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
+                <Table size={20} color="#1a73e8" /> Pustaka Data
+              </h2>
+              <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>
+                {markers.length} total marker terdaftar
+              </p>
             </div>
 
             <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e8eaed", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
@@ -2553,9 +2408,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     </tr>
                   ) : (
                     markers.map((marker, index) => {
-                      const statusColor = marker.status === "Diterima" ? { bg: "#e8f5e9", color: "#27ae60", label: "✅ Diterima" }
-                        : marker.status === "Pending" ? { bg: "#fff8e1", color: "#f39c12", label: "⏳ Pending" }
-                        : { bg: "#fff5f5", color: "#e74c3c", label: "❌ Ditolak" };
+                      const statusColor = marker.status === "Diterima" ? { bg: "#e8f5e9", color: "#27ae60", label: "âœ… Diterima" }
+                        : marker.status === "Pending" ? { bg: "#fff8e1", color: "#f39c12", label: "â³ Pending" }
+                        : { bg: "#fff5f5", color: "#e74c3c", label: "âŒ Ditolak" };
                       return (
                         <tr key={marker.id} style={{ borderBottom: "1px solid #f0f0f0" }}
                           onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
@@ -2603,38 +2458,149 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </div>
         )}
 
-        {/* Tombol Tambah Marker Floating â€” hanya untuk user yang login */}
-        {authKey && activeView === "map" && (
-          <button
-            onClick={() => setIsEditMode(!isEditMode)}
-            title={
-              isEditMode ? "Matikan mode tambah marker" : "Tambah marker baru"
-            }
-            style={{
-              position: "absolute",
-              bottom: "30px",
-              right: "20px",
-              zIndex: 1000,
-              width: "56px",
-              height: "56px",
-              borderRadius: "50%",
-              background: isEditMode
-                ? "linear-gradient(135deg,#e74c3c,#c0392b)"
-                : "linear-gradient(135deg,#1a73e8,#0d47a1)",
-              color: "#fff",
-              border: "none",
-              fontSize: "28px",
-              fontWeight: "bold",
-              cursor: "pointer",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.2s",
-            }}
-          >
-            {isEditMode ? <X size={28} /> : <Plus size={28} />}
-          </button>
+        {/* ===== VIEW: KELOLA KATEGORI ===== */}
+        {activeView === "kategori" && userRole === "admin" && (
+          <div style={{
+            position: "absolute", top: 0, bottom: 0,
+            left: sidebarExpanded ? SIDEBAR_W_EXPANDED - SIDEBAR_W_COLLAPSED : 0,
+            right: 0, padding: "28px", background: "#f8f9fa",
+            overflowY: "auto", transition: "left 0.25s cubic-bezier(.4,0,.2,1)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+              <div>
+                <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Settings size={20} color="#1a73e8" /> Kelola Kategori
+                </h2>
+                <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>{kategoriOptions.length} kategori terdaftar</p>
+              </div>
+              <button
+                onClick={() => { setKategoriModal({ mode: "add" }); setKatForm({ nama_kategori: "", warna: "#3498db", fields: [] }); }}
+                style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 16px", background: "#1a73e8", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
+                <Plus size={15} /> Tambah Kategori
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {kategoriOptions.map((kat) => (
+                <div key={kat.id} style={{ background: "#fff", borderRadius: "12px", padding: "14px 18px", border: "1px solid #e8eaed", display: "flex", alignItems: "center", gap: "14px" }}>
+                  <div style={{ width: 14, height: 14, borderRadius: "50%", background: kat.warna || "#3498db", flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: "14px", color: "#1a1a2e" }}>{kat.nama_kategori}</div>
+                    <div style={{ fontSize: "12px", color: "#9aa0a6", marginTop: "2px" }}>
+                      {(kat.fields || []).length} atribut: {(kat.fields || []).map(f => f.label).join(", ") || "-"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setKategoriModal({ mode: "edit", data: kat }); setKatForm({ nama_kategori: kat.nama_kategori, warna: kat.warna || "#3498db", fields: kat.fields || [] }); }}
+                    style={{ padding: "6px 12px", background: "#fff3e0", color: "#e67e22", border: "1px solid #f0c070", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteKategori(kat.id)}
+                    style={{ padding: "6px 12px", background: "#fff5f5", color: "#e74c3c", border: "1px solid #ffcccc", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>
+                    Hapus
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal Tambah/Edit Kategori */}
+        {kategoriModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 3500, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "28px", width: "520px", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+              <h3 style={{ margin: "0 0 20px", fontSize: "18px", fontWeight: 800, color: "#1a1a2e" }}>
+                {kategoriModal.mode === "add" ? "➕ Tambah Kategori" : "✏️ Edit Kategori"}
+              </h3>
+
+              {/* Nama */}
+              <label style={{ fontSize: "12px", fontWeight: 700, color: "#5f6368", display: "block", marginBottom: "4px" }}>Nama Kategori</label>
+              <input value={katForm.nama_kategori} onChange={e => setKatForm(p => ({ ...p, nama_kategori: e.target.value }))}
+                placeholder="Contoh: Klinik Mata"
+                style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #e0e0e0", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box", marginBottom: "14px" }} />
+
+              {/* Warna */}
+              <label style={{ fontSize: "12px", fontWeight: 700, color: "#5f6368", display: "block", marginBottom: "4px" }}>Warna Marker</label>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+                <input type="color" value={katForm.warna} onChange={e => setKatForm(p => ({ ...p, warna: e.target.value }))}
+                  style={{ width: "44px", height: "36px", border: "1px solid #e0e0e0", borderRadius: "6px", cursor: "pointer", padding: "2px" }} />
+                <span style={{ fontSize: "13px", color: "#5f6368" }}>{katForm.warna}</span>
+              </div>
+
+              {/* Atribut yang sudah ditambah */}
+              <label style={{ fontSize: "12px", fontWeight: 700, color: "#5f6368", display: "block", marginBottom: "8px" }}>
+                Atribut ({katForm.fields.length})
+              </label>
+              {katForm.fields.length > 0 && (
+                <div style={{ marginBottom: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {katForm.fields.map((f, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f8f9fa", padding: "8px 12px", borderRadius: "8px", border: "1px solid #e8eaed" }}>
+                      <span style={{ flex: 1, fontSize: "13px", color: "#3c4043" }}>
+                        <b>{f.label}</b> <span style={{ color: "#9aa0a6" }}>({f.key}, {f.type}{f.options ? ": " + f.options.join(", ") : ""})</span>
+                      </span>
+                      <button onClick={() => removeKatField(i)}
+                        style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "16px", lineHeight: 1 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Form tambah atribut */}
+              <div style={{ background: "#f0f4ff", borderRadius: "10px", padding: "14px", marginBottom: "20px" }}>
+                <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: 700, color: "#1a73e8" }}>+ Tambah Atribut</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#5f6368", display: "block", marginBottom: "3px" }}>Key (tanpa spasi)</label>
+                    <input value={katFieldDraft.key} onChange={e => setKatFieldDraft(p => ({ ...p, key: e.target.value }))}
+                      placeholder="jam_operasional"
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#5f6368", display: "block", marginBottom: "3px" }}>Label</label>
+                    <input value={katFieldDraft.label} onChange={e => setKatFieldDraft(p => ({ ...p, label: e.target.value }))}
+                      placeholder="Jam Operasional"
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }} />
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", color: "#5f6368", display: "block", marginBottom: "3px" }}>Tipe</label>
+                    <select value={katFieldDraft.type} onChange={e => setKatFieldDraft(p => ({ ...p, type: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: "6px", fontSize: "13px" }}>
+                      <option value="text">Text</option>
+                      <option value="number">Number</option>
+                      <option value="select">Select (pilihan)</option>
+                    </select>
+                  </div>
+                  {katFieldDraft.type === "select" && (
+                    <div>
+                      <label style={{ fontSize: "11px", color: "#5f6368", display: "block", marginBottom: "3px" }}>Opsi (pisah koma)</label>
+                      <input value={katFieldDraft.options} onChange={e => setKatFieldDraft(p => ({ ...p, options: e.target.value }))}
+                        placeholder="Ya, Tidak"
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }} />
+                    </div>
+                  )}
+                </div>
+                <button onClick={addKatField}
+                  style={{ padding: "7px 14px", background: "#1a73e8", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}>
+                  + Tambah Atribut
+                </button>
+              </div>
+
+              {/* Tombol aksi */}
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button onClick={() => setKategoriModal(null)}
+                  style={{ padding: "10px 18px", background: "#f0f0f0", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#5f6368" }}>
+                  Batal
+                </button>
+                <button onClick={handleSaveKategori}
+                  style={{ padding: "10px 20px", background: "#1a73e8", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}>
+                  {kategoriModal.mode === "add" ? "Simpan Kategori" : "Update Kategori"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Label mode tambah */}
@@ -2667,7 +2633,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </div>
         )}
 
-        {/* SIDEBAR INFO MARKER â€” Google Maps style (kiri) */}
+        {/* SIDEBAR INFO MARKER Ã¢â‚¬â€ Google Maps style (kiri) */}
         {sidebarMarker && (
           <div
             style={{
@@ -3184,3 +3150,4 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     </div>
   );
 }
+

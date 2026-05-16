@@ -11,6 +11,7 @@ module.exports = (sequelize, DataTypes) => {
     nama_kategori: { type: DataTypes.STRING, allowNull: false },
     icon_name: { type: DataTypes.STRING },
     warna: { type: DataTypes.STRING },
+    fields: { type: DataTypes.JSON, allowNull: true, defaultValue: null },
     master_tipe_id: { type: DataTypes.INTEGER, allowNull: false }
   }, { sequelize, modelName: 'KategoriKesehatan' });
   return KategoriKesehatan;

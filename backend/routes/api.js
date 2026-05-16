@@ -10,8 +10,11 @@ const authMiddleware = require("../middleware/authMiddleware");
 router.post("/register", authController.register);
 router.post("/login", authController.login);
 
-// === KATEGORI (Public) ===
+// === KATEGORI (Public GET, Admin CRUD) ===
 router.get("/kategori", kategoriController.getAllKategori);
+router.post("/kategori", authMiddleware, kategoriController.createKategori);
+router.put("/kategori/:id", authMiddleware, kategoriController.updateKategori);
+router.delete("/kategori/:id", authMiddleware, kategoriController.deleteKategori);
 
 // === EXPLORE (Public – semua marker) ===
 router.get("/points/explore", pointController.explorePoints);
