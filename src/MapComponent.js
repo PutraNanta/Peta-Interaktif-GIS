@@ -812,7 +812,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             savedMarker.status === "Pending"
           ) {
             alert(
-              "âœ… Marker berhasil dikirim ulang dan menunggu persetujuan admin.",
+              "Marker berhasil dikirim ulang dan menunggu persetujuan admin.",
             );
           }
         } else {
@@ -823,7 +823,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             // User biasa: marker Pending, tampilkan marker langsung agar foto dapat ditinjau
             setMarkers((prev) => [...prev, savedMarker]);
             alert(
-              "âœ… Marker berhasil ditambahkan dan menunggu persetujuan admin.",
+              "Marker berhasil ditambahkan dan menunggu persetujuan admin.",
             );
           }
         }
@@ -833,18 +833,18 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         setFotoUrl("");
         setFotoFile(null);
       } else {
-        alert("âŒ Gagal: " + result.message);
+        alert('Gagal: ' + result.message);
       }
     } catch (err) {
       console.error(err);
-      alert("âŒ Error saat menyimpan data");
+      alert('Error saat menyimpan data');
     }
   };
 
   // Handle delete
   const handleDeletePoint = async (markerId) => {
     if (!authKey) {
-      alert("ðŸ”’ AKSES DITOLAK.");
+      alert("AKSES DITOLAK.");
       return;
     }
     if (!window.confirm("Yakin menghapus poin ini?")) return;
@@ -865,7 +865,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
   const handleApprove = async (markerId) => {
     if (!authKey || userRole !== "admin") {
-      alert("ðŸ”’ AKSES DITOLAK.");
+      alert("AKSES DITOLAK.");
       return;
     }
     try {
@@ -1075,7 +1075,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#f1f8e9", "#c5e1a5")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ï¿½ï¸ Detail Puskesmas
+            Detail Puskesmas
           </h4>
           <F
             label="Jenis"
@@ -1107,7 +1107,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#e0f7fa", "#b2ebf2")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ðŸ’Š Detail Apotek
+            Detail Apotek
           </h4>
           <F
             label="Jaringan"
@@ -1130,7 +1130,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#fffde7", "#fff9c4")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ðŸ¦· Detail Klinik Gigi
+            Detail Klinik Gigi
           </h4>
           <F
             label="Layanan Gigi (pisahkan koma)"
@@ -1152,7 +1152,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       return (
         <div style={wrapStyle("#fce4ec", "#f8bbd0")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
-            ðŸ¤± Detail Bidan & Klinik Bersalin
+            Detail Bidan & Klinik Bersalin
           </h4>
           <F
             label="Layanan (pisahkan koma)"
@@ -1175,7 +1175,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         <div style={wrapStyle("#ede7f6", "#d1c4e9")}>
           <h4 style={{ margin: "0 0 12px", color: categoryColor }}>
             ï¿½ï¸ Detail Fisioterapi & Rehabilitasi
-          </h4>
+            Detail Fisioterapi & Rehabilitasi
           <F
             label="Spesialisasi"
             name="spesialisasi_rehab"
@@ -1250,6 +1250,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     },
   );
 
+  const pendingCount = markers.filter((m) => m.status === 'Pending').length;
+  const pendingCount = markers.filter((m) => m.status === "Pending").length;
+
   return (
     <div
       style={{
@@ -1304,7 +1307,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 gap: "8px",
               }}
             >
-              âŒ Tolak Marker
+              <XCircle size={18} /> Tolak Marker
             </h3>
             <p
               style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#666" }}
@@ -1377,9 +1380,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   cursor: "pointer",
                   fontWeight: "bold",
                   fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
                 }}
               >
-                âŒ Konfirmasi Tolak
+                <XCircle size={14} /> Konfirmasi Tolak
               </button>
             </div>
           </div>
@@ -1704,7 +1710,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         fontWeight: "bold",
                       }}
                     >
-                      â† Kembali
+                      ← Kembali
                     </button>
                   )}
                   <button
@@ -1977,7 +1983,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             )}
           </div>
 
-          {userRole !== "admin" && (
+          {userRole !== "admin" && authKey && (
             <button
               onClick={() => setShowExplore(!showExplore)}
               style={{
@@ -2003,6 +2009,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 setActiveView(activeView === "map" ? "table" : "map")
               }
               style={{
+                position: "relative",
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
@@ -2016,6 +2023,24 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               }}
             >
               <Table size={16} /> Tabel
+              {pendingCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "-6px",
+                    right: "-6px",
+                    background: "#e74c3c",
+                    color: "white",
+                    fontSize: "10px",
+                    fontWeight: "bold",
+                    padding: "2px 6px",
+                    borderRadius: "10px",
+                    border: "2px solid white",
+                  }}
+                >
+                  {pendingCount}
+                </span>
+              )}
             </button>
           )}
 
@@ -2374,21 +2399,24 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     color: "#27ae60",
                     fontWeight: "bold",
                     marginBottom: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px"
                   }}
                 >
-                  âœ… Rute ditemukan
+                  <CheckCircle size={14} /> Rute ditemukan
                 </div>
-                <div>
-                  ðŸ“ Jarak: <b>{routeInfo.distanceKm} km</b>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <MapPin size={14} /> Jarak: <b>{routeInfo.distanceKm} km</b>
                 </div>
-                <div>
-                  â±ï¸ Estimasi: <b>~{routeInfo.durationMin} menit</b>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
+                  <Clock size={14} /> Estimasi: <b>~{routeInfo.durationMin} menit</b>
                 </div>
               </div>
             )}
             {startPoint && endPoint && routeInfo === null && (
-              <div style={{ fontSize: "13px", color: "#e74c3c" }}>
-                âš ï¸ Rute tidak ditemukan, menampilkan garis lurus
+              <div style={{ fontSize: "13px", color: "#e74c3c", display: "flex", alignItems: "center", gap: "4px" }}>
+                <AlertTriangle size={14} /> Rute tidak ditemukan, menampilkan garis lurus
               </div>
             )}
             {(startPoint || endPoint) && (
@@ -2409,9 +2437,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   cursor: "pointer",
                   fontSize: "12px",
                   fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px"
                 }}
               >
-                ðŸ”„ Reset Titik
+                <Trash2 size={14} /> Reset Titik
               </button>
             )}
           </div>
