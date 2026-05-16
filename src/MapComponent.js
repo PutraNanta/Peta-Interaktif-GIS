@@ -1272,35 +1272,30 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Sidebar nav state
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
-  // Sidebar nav items
+  // Sidebar nav items — tanpa "Peta" dan "Lokasi Saya"
   const SIDEBAR_W_COLLAPSED = 64;
-  const SIDEBAR_W_EXPANDED = 240;
+  const SIDEBAR_W_EXPANDED = 220;
 
   const navItems = [
     ...(authKey ? [
-      { id: "map",     icon: <MapPin size={20}/>,      label: "Peta",            onClick: () => { setActiveView("map"); setSidebarMarker(null); } },
       ...(userRole !== "admin" ? [
-        { id: "explore", icon: <Compass size={20}/>,    label: showExplore ? "Tutup Eksplorasi" : "Eksplorasi", onClick: () => setShowExplore(!showExplore), active: showExplore },
+        { id: "explore", icon: <Compass size={20}/>, label: showExplore ? "Tutup Eksplorasi" : "Eksplorasi", onClick: () => setShowExplore(!showExplore), active: showExplore },
       ] : []),
       ...(userRole === "admin" ? [
         { id: "status",  icon: <CheckCircle size={20}/>, label: "Status Kontributor", badge: pendingCount, onClick: () => setActiveView("status") },
-        { id: "library", icon: <Table size={20}/>,       label: "Pustaka Data",    onClick: () => setActiveView("library") },
+        { id: "library", icon: <Table size={20}/>,       label: "Pustaka Data",       onClick: () => setActiveView("library") },
       ] : []),
+      { id: "routing", icon: <MapPin size={20}/>,  label: routingEnabled ? "Matikan Routing" : "Mode Routing", onClick: () => { const n = !routingEnabled; setRoutingEnabled(n); if (n) setRoutingStep(1); }, active: routingEnabled },
+      { id: "add",     icon: <Plus size={20}/>,    label: isEditMode ? "Batal Tambah" : "Tambah Marker", onClick: () => setIsEditMode(!isEditMode), active: isEditMode },
     ] : []),
-    { id: "filter",  icon: <Filter size={20}/>,      label: "Filter Kategori", onClick: () => setIsFilterDropdownOpen(!isFilterDropdownOpen) },
-    { id: "layer",   icon: <Layers size={20}/>,      label: tileLayer === "street" ? "Ganti ke Satelit" : "Ganti ke Peta", onClick: () => setTileLayer(t => t === "street" ? "satellite" : "street") },
-    { id: "locate",  icon: <Compass size={20}/>,     label: "Lokasi Saya",     onClick: () => { if (userLocation && mapInstance) mapInstance.flyTo(userLocation, 16, { animate: true, duration: 1.2 }); } },
-    ...(authKey ? [
-      { id: "routing", icon: <MapPin size={20}/>,     label: routingEnabled ? "Matikan Routing" : "Mode Routing", onClick: () => { const n = !routingEnabled; setRoutingEnabled(n); if (n) setRoutingStep(1); }, active: routingEnabled },
-      { id: "add",     icon: <Plus size={20}/>,        label: isEditMode ? "Batal Tambah" : "Tambah Marker",  onClick: () => setIsEditMode(!isEditMode), active: isEditMode },
-    ] : []),
+    { id: "layer", icon: <Layers size={20}/>, label: tileLayer === "street" ? "Ganti ke Satelit" : "Ganti ke Peta", onClick: () => setTileLayer(t => t === "street" ? "satellite" : "street") },
   ];
 
   return (
     <div style={{ height: "100vh", fontFamily: "sans-serif", position: "relative", display: "flex" }}>
       <style>{`
         .leaflet-top { top: 10px !important; }
-        .leaflet-left { left: ${SIDEBAR_W_COLLAPSED + 10}px !important; }
+        .leaflet-bottom.leaflet-right { bottom: 30px !important; right: 15px !important; }
         .cluster { background-color: #2ecc71 !important; }
         .cluster div { background-color: #27ae60 !important; }
         @keyframes slideInLeft {
@@ -1795,7 +1790,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         </div>
       )}
 
-      {/* ===== SIDEBAR KIRI ===== */}
+      {/* ===== SIDEBAR KIRI — putih, hover expand ===== */}
       <nav
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
@@ -1805,13 +1800,14 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           left: 0,
           bottom: 0,
           width: sidebarExpanded ? SIDEBAR_W_EXPANDED : SIDEBAR_W_COLLAPSED,
-          background: "linear-gradient(180deg, #0d47a1 0%, #1a237e 100%)",
+          background: "#ffffff",
           zIndex: 1500,
           display: "flex",
           flexDirection: "column",
           transition: "width 0.25s cubic-bezier(.4,0,.2,1)",
           overflow: "hidden",
-          boxShadow: "4px 0 20px rgba(0,0,0,0.25)",
+          boxShadow: "4px 0 20px rgba(0,0,0,0.10)",
+          borderRight: "1px solid #e8eaed",
         }}
       >
         {/* Logo */}
@@ -1821,104 +1817,65 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           alignItems: "center",
           padding: "0 16px",
           gap: "12px",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          borderBottom: "1px solid #f0f0f0",
           flexShrink: 0,
         }}>
           <div style={{
-            width: 32, height: 32, borderRadius: "8px",
-            background: "rgba(255,255,255,0.15)",
+            width: 34, height: 34, borderRadius: "10px",
+            background: "linear-gradient(135deg,#1a73e8,#0d47a1)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
+            flexShrink: 0, boxShadow: "0 2px 8px rgba(26,115,232,0.35)",
           }}>
             <HeartPulse size={18} color="white" />
           </div>
           {sidebarExpanded && (
             <div style={{ overflow: "hidden", whiteSpace: "nowrap" }}>
-              <div style={{ color: "#fff", fontWeight: 800, fontSize: "14px", letterSpacing: "0.3px" }}>
+              <div style={{ color: "#1a1a2e", fontWeight: 800, fontSize: "14px" }}>
                 Peta Kesehatan
               </div>
-              <div style={{ color: "rgba(255,255,255,0.55)", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px" }}>
+              <div style={{ color: "#9aa0a6", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px" }}>
                 {authKey ? (userRole === "admin" ? "Admin" : "Kontributor") : "Guest"}
               </div>
             </div>
           )}
         </div>
 
-        {/* Search bar (hanya saat expanded) */}
-        {sidebarExpanded && (
-          <div style={{ padding: "12px 12px 4px", flexShrink: 0 }}>
-            <div style={{
-              display: "flex", alignItems: "center",
-              background: "rgba(255,255,255,0.12)",
-              borderRadius: "8px", padding: "8px 10px", gap: "8px",
-            }}>
-              <Search size={14} color="rgba(255,255,255,0.7)" />
-              <input
-                type="text"
-                placeholder="Cari fasilitas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  background: "none", border: "none", outline: "none",
-                  color: "#fff", fontSize: "13px", width: "100%",
-                }}
-              />
-              {searchQuery && (
-                <X size={13} color="rgba(255,255,255,0.6)" style={{ cursor: "pointer", flexShrink: 0 }}
-                  onClick={() => setSearchQuery("")} />
-              )}
-            </div>
-            {/* Search results */}
-            {(searchResults.length > 0 || isSearchSearching) && (
-              <div style={{
-                background: "#fff", borderRadius: "8px", marginTop: "6px",
-                boxShadow: "0 8px 20px rgba(0,0,0,0.2)", maxHeight: "180px", overflowY: "auto",
-              }}>
-                {isSearchSearching ? (
-                  <div style={{ padding: "10px 12px", fontSize: "12px", color: "#777" }}>Mencari...</div>
-                ) : searchResults.map((res, i) => (
-                  <div key={i} onClick={() => handleExternalSearchClick(res)}
-                    style={{ padding: "10px 12px", borderBottom: "1px solid #eee", cursor: "pointer", fontSize: "12px" }}>
-                    {res.display_name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Nav Items */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+        <div style={{ flex: 1, overflow: "hidden", padding: "8px 0" }}>
           {navItems.map((item) => {
             const isActive = item.active || activeView === item.id;
             return (
               <button
                 key={item.id}
-                className={`nav-item${isActive ? " nav-item-active" : ""}`}
                 onClick={item.onClick}
                 title={!sidebarExpanded ? item.label : undefined}
                 style={{
                   width: "100%", display: "flex", alignItems: "center",
-                  gap: "12px", padding: "11px 16px",
-                  background: isActive ? "rgba(255,255,255,0.18)" : "transparent",
-                  border: "none", color: "#fff", cursor: "pointer",
+                  gap: "12px", padding: "11px 15px",
+                  background: isActive ? "#e8f0fe" : "transparent",
+                  border: "none",
+                  color: isActive ? "#1a73e8" : "#5f6368",
+                  cursor: "pointer",
                   fontSize: "13px", fontWeight: isActive ? 700 : 500,
                   textAlign: "left", transition: "background 0.15s",
                   position: "relative", whiteSpace: "nowrap",
-                  borderLeft: isActive ? "3px solid #64b5f6" : "3px solid transparent",
+                  borderLeft: isActive ? "3px solid #1a73e8" : "3px solid transparent",
+                  borderRadius: "0 8px 8px 0",
+                  marginRight: "8px",
                 }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#f8f9fa"; }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
               >
-                <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.8 }}>{item.icon}</span>
-                {sidebarExpanded && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>}
+                <span style={{ flexShrink: 0 }}>{item.icon}</span>
+                {sidebarExpanded && (
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{item.label}</span>
+                )}
                 {item.badge > 0 && (
                   <span style={{
-                    position: "absolute", top: "8px",
-                    left: sidebarExpanded ? "auto" : "36px",
-                    right: sidebarExpanded ? "12px" : "auto",
                     background: "#e74c3c", color: "#fff",
                     fontSize: "10px", fontWeight: 700,
                     padding: "1px 5px", borderRadius: "10px",
-                    border: "2px solid #0d47a1",
+                    flexShrink: 0,
                   }}>{item.badge}</span>
                 )}
               </button>
@@ -1929,37 +1886,38 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         {/* Filter dropdown (expanded) */}
         {sidebarExpanded && isFilterDropdownOpen && (
           <div style={{
-            padding: "12px", borderTop: "1px solid rgba(255,255,255,0.1)",
+            padding: "12px", borderTop: "1px solid #f0f0f0",
             maxHeight: "280px", overflowY: "auto", flexShrink: 0,
+            background: "#fafafa",
           }}>
-            <p style={{ margin: "0 0 8px", color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px" }}>
+            <p style={{ margin: "0 0 8px", color: "#9aa0a6", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px" }}>
               Filter Kategori
             </p>
             {kategoriKesehatan.map((kat) => (
               <label key={kat} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", cursor: "pointer" }}>
                 <input type="checkbox" checked={filters[kat] !== false}
                   onChange={() => setFilters((prev) => ({ ...prev, [kat]: !prev[kat] }))}
-                  style={{ accentColor: "#64b5f6" }} />
-                <span style={{ color: "#fff", fontSize: "12px" }}>{kat}</span>
+                  style={{ accentColor: "#1a73e8" }} />
+                <span style={{ color: "#3c4043", fontSize: "12px" }}>{kat}</span>
               </label>
             ))}
           </div>
         )}
 
+        {/* Separator line */}
+        <div style={{ height: "1px", background: "#e8eaed", margin: "0 12px", flexShrink: 0 }} />
+
         {/* User section bawah */}
-        <div style={{
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-          padding: "10px 12px", flexShrink: 0,
-        }}>
+        <div style={{ padding: "10px 10px", flexShrink: 0 }}>
           {authKey ? (
             <button
               onClick={handleLogout}
               title={!sidebarExpanded ? "Logout" : undefined}
               style={{
                 width: "100%", display: "flex", alignItems: "center", gap: "12px",
-                padding: "10px", background: "rgba(231,76,60,0.2)",
-                border: "1px solid rgba(231,76,60,0.4)", borderRadius: "8px",
-                color: "#ff8a80", cursor: "pointer", fontSize: "13px", fontWeight: 600,
+                padding: "10px 12px", background: "#fff5f5",
+                border: "1px solid #ffcccc", borderRadius: "8px",
+                color: "#e74c3c", cursor: "pointer", fontSize: "13px", fontWeight: 600,
                 whiteSpace: "nowrap",
               }}
             >
@@ -1972,9 +1930,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               title={!sidebarExpanded ? "Login" : undefined}
               style={{
                 width: "100%", display: "flex", alignItems: "center", gap: "12px",
-                padding: "10px", background: "rgba(255,255,255,0.12)",
+                padding: "10px 12px", background: "#e8f0fe",
                 border: "none", borderRadius: "8px",
-                color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 600,
+                color: "#1a73e8", cursor: "pointer", fontSize: "13px", fontWeight: 600,
                 whiteSpace: "nowrap",
               }}
             >
@@ -1997,151 +1955,138 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           overflow: "hidden",
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            top: "100px",
-            right: "10px",
-            zIndex: 1000,
-            display: "flex",
-            gap: "8px",
-            alignItems: "center",
-          }}
-        >
-          {/* Tile Layer Toggle */}
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsTileDropdownOpen(!isTileDropdownOpen);
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#fff",
-                border: "1px solid #ddd",
-                color: "#343a40",
-                padding: "8px 14px",
-                borderRadius: "8px",
-                fontWeight: "bold",
-                cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                fontSize: "13px",
-              }}
-            >
-              <Layers size={15} />
-              {tileLayer === "street" ? "Peta" : "Satelit"}
-              <ChevronDown size={13} />
-            </button>
-            {isTileDropdownOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 6px)",
-                  right: 0,
-                  background: "#fff",
-                  borderRadius: "8px",
-                  boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
-                  minWidth: "130px",
-                  zIndex: 1500,
-                }}
-              >
-                <div
-                  onClick={() => {
-                    setTileLayer("street");
-                    setIsTileDropdownOpen(false);
-                  }}
-                  style={{
-                    padding: "10px 15px",
-                    cursor: "pointer",
-                    background: tileLayer === "street" ? "#f0f4ff" : "#fff",
-                    fontWeight: tileLayer === "street" ? "bold" : "normal",
-                    fontSize: "13px",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Layers size={14} /> Peta Jalan
-                  </div>
-                </div>
-                <div
-                  onClick={() => {
-                    setTileLayer("satellite");
-                    setIsTileDropdownOpen(false);
-                  }}
-                  style={{
-                    padding: "10px 15px",
-                    cursor: "pointer",
-                    background: tileLayer === "satellite" ? "#f0f4ff" : "#fff",
-                    fontWeight: tileLayer === "satellite" ? "bold" : "normal",
-                    fontSize: "13px",
-                  }}
-                >
-                  <MapIcon size={14} /> Satelit
-                </div>
-              </div>
-            )}
+        {/* ===== TOP BAR — Card dengan judul, search, filter ===== */}
+        <div style={{
+          position: "absolute",
+          top: "15px",
+          left: `calc(50% + ${sidebarExpanded ? (SIDEBAR_W_EXPANDED - SIDEBAR_W_COLLAPSED) / 2 : 0}px)`,
+          transform: "translateX(-50%)",
+          zIndex: 1100,
+          background: "#fff",
+          borderRadius: "16px",
+          padding: "12px 20px 14px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+          border: "1px solid #e8eaed",
+          width: sidebarExpanded
+            ? `calc(100% - ${SIDEBAR_W_EXPANDED + 40}px)`
+            : `calc(100% - ${SIDEBAR_W_COLLAPSED + 40}px)`,
+          maxWidth: "600px",
+          minWidth: "280px",
+          transition: "width 0.25s cubic-bezier(.4,0,.2,1), left 0.25s cubic-bezier(.4,0,.2,1)",
+        }}>
+          {/* Judul */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            marginBottom: "10px",
+          }}>
+            <HeartPulse size={16} color="#d63031" />
+            <span style={{ fontWeight: 800, fontSize: "15px", color: "#1a1a2e", letterSpacing: "0.2px" }}>
+              Peta Fasilitas Kesehatan
+            </span>
+            <span style={{
+              marginLeft: "auto", fontSize: "11px", color: "#9aa0a6",
+              background: "#f8f9fa", padding: "2px 8px", borderRadius: "10px",
+              fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px",
+            }}>
+              {authKey ? (userRole === "admin" ? "Admin" : "Kontributor") : "Guest"}
+            </span>
           </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (userLocation && mapInstance) {
-                mapInstance.flyTo(userLocation, 16, {
-                  animate: true,
-                  duration: 1.2,
-                });
-              }
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "#fff",
-              border: "1px solid #ddd",
-              color: "#343a40",
-              padding: "8px 14px",
-              borderRadius: "8px",
-              fontWeight: "bold",
-              cursor: "pointer",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              fontSize: "13px",
-            }}
-          >
-            <Compass size={15} /> Lokasi Saya
-          </button>
-          {routeTarget && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setRouteTarget(null);
-                setLegacyRouteInfo(null);
-              }}
+          {/* Search + Filter row */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            background: "#f8f9fa", borderRadius: "10px",
+            padding: "8px 12px", border: "1px solid #e8eaed",
+          }}>
+            <Search size={15} color="#9aa0a6" style={{ flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Cari fasilitas kesehatan..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#fff",
-                border: "1px solid #ddd",
-                color: "#343a40",
-                padding: "8px 14px",
-                borderRadius: "8px",
-                fontWeight: "bold",
-                cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                fontSize: "13px",
+                border: "none", outline: "none", flex: 1,
+                fontSize: "13px", background: "transparent", color: "#3c4043",
+              }}
+            />
+            {searchQuery && (
+              <X size={14} color="#9aa0a6" style={{ cursor: "pointer", flexShrink: 0 }}
+                onClick={() => setSearchQuery("")} />
+            )}
+            <div style={{ width: "1px", height: "18px", background: "#e0e0e0", flexShrink: 0 }} />
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsFilterDropdownOpen(!isFilterDropdownOpen); }}
+              style={{
+                display: "flex", alignItems: "center", gap: "5px",
+                background: isFilterDropdownOpen ? "#e8f0fe" : "transparent",
+                border: "none", color: isFilterDropdownOpen ? "#1a73e8" : "#5f6368",
+                cursor: "pointer", fontSize: "12px", fontWeight: 600,
+                padding: "3px 8px", borderRadius: "8px", flexShrink: 0,
+                transition: "background 0.15s",
               }}
             >
-              <Trash2 size={14} /> Hapus Rute
+              <Filter size={14} /> Filter
             </button>
+          </div>
+
+          {/* Search results dropdown */}
+          {(searchResults.length > 0 || isSearchSearching) && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+              background: "#fff", borderRadius: "12px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              maxHeight: "220px", overflowY: "auto", zIndex: 1200,
+            }}>
+              {isSearchSearching ? (
+                <div style={{ padding: "12px 16px", fontSize: "13px", color: "#777" }}>Mencari lokasi...</div>
+              ) : searchResults.map((res, i) => (
+                <div key={i} onClick={() => handleExternalSearchClick(res)}
+                  style={{ padding: "11px 16px", borderBottom: "1px solid #f0f0f0", cursor: "pointer", fontSize: "13px", color: "#3c4043" }}>
+                  {res.display_name}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Filter dropdown */}
+          {isFilterDropdownOpen && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", right: 0,
+              background: "#fff", borderRadius: "12px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              padding: "16px", minWidth: "220px", zIndex: 1200,
+            }}>
+              <p style={{ margin: "0 0 10px", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>
+                Filter Kategori
+              </p>
+              {kategoriKesehatan.map((kat) => (
+                <label key={kat} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={filters[kat] !== false}
+                    onChange={() => setFilters((prev) => ({ ...prev, [kat]: !prev[kat] }))}
+                    style={{ accentColor: "#1a73e8", transform: "scale(1.1)" }} />
+                  <span style={{ fontSize: "13px", color: "#3c4043", fontWeight: 500 }}>{kat}</span>
+                </label>
+              ))}
+            </div>
           )}
         </div>
+
+        {/* Hapus Rute button — top right */}
+        {routeTarget && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setRouteTarget(null); setLegacyRouteInfo(null); }}
+            style={{
+              position: "absolute", top: "15px", right: "15px", zIndex: 1100,
+              display: "flex", alignItems: "center", gap: "6px",
+              background: "#fff", border: "1px solid #e8eaed",
+              color: "#e74c3c", padding: "9px 14px", borderRadius: "20px",
+              fontWeight: 600, cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)", fontSize: "13px",
+            }}
+          >
+            <Trash2 size={14} /> Hapus Rute
+          </button>
+        )}
 
         {/* Panel Info Rute (Routing Mode) */}
         {routingEnabled && (
@@ -2301,6 +2246,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               minZoom={9}
               maxZoom={18}
               maxBounds={baliBounds}
+              zoomControl={false}
               whenCreated={setMapInstance}
               style={{
                 height: "100%",
@@ -3137,45 +3083,6 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </div>
         )}
       </div>
-
-      {/* Footer untuk Guest */}
-      {!authKey && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            width: "100%",
-            height: "52px",
-            background: "linear-gradient(90deg,#1a73e8,#0d47a1)",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "16px",
-            fontSize: "13px",
-            fontWeight: 600,
-            zIndex: 1000,
-          }}
-        >
-          <User size={16} /> Anda menjelajah sebagai <b>Guest</b>
-          <button
-            onClick={() => navigate("/login")}
-            style={{
-              background: "#fff",
-              color: "#1a73e8",
-              border: "none",
-              padding: "6px 16px",
-              borderRadius: "20px",
-              fontWeight: 700,
-              cursor: "pointer",
-              fontSize: "13px",
-            }}
-          >
-            Login / Daftar
-          </button>
-        </div>
-      )}
     </div>
   );
 }
