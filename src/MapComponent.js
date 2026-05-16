@@ -1272,11 +1272,13 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Sidebar nav state
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
-  // Sidebar nav items — tanpa "Peta" dan "Lokasi Saya"
+  // Sidebar nav items — admin: status kontributor, pustaka data, tambah marker, layer
   const SIDEBAR_W_COLLAPSED = 64;
   const SIDEBAR_W_EXPANDED = 220;
 
   const navItems = [
+    // Beranda — selalu ada, kembali ke peta utama
+    { id: "map", icon: <Home size={20}/>, label: "Beranda", onClick: () => { setActiveView("map"); setSidebarMarker(null); setIsEditMode(false); } },
     ...(authKey ? [
       ...(userRole !== "admin" ? [
         { id: "explore", icon: <Compass size={20}/>, label: showExplore ? "Tutup Eksplorasi" : "Eksplorasi", onClick: () => setShowExplore(!showExplore), active: showExplore },
@@ -1285,8 +1287,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         { id: "status",  icon: <CheckCircle size={20}/>, label: "Status Kontributor", badge: pendingCount, onClick: () => setActiveView("status") },
         { id: "library", icon: <Table size={20}/>,       label: "Pustaka Data",       onClick: () => setActiveView("library") },
       ] : []),
-      { id: "routing", icon: <MapPin size={20}/>,  label: routingEnabled ? "Matikan Routing" : "Mode Routing", onClick: () => { const n = !routingEnabled; setRoutingEnabled(n); if (n) setRoutingStep(1); }, active: routingEnabled },
-      { id: "add",     icon: <Plus size={20}/>,    label: isEditMode ? "Batal Tambah" : "Tambah Marker", onClick: () => setIsEditMode(!isEditMode), active: isEditMode },
+      { id: "add", icon: isEditMode ? <X size={20}/> : <Plus size={20}/>, label: isEditMode ? "Batal Tambah" : "Tambah Marker", onClick: () => { setIsEditMode(!isEditMode); if (activeView !== "map") setActiveView("map"); }, active: isEditMode },
     ] : []),
     { id: "layer", icon: <Layers size={20}/>, label: tileLayer === "street" ? "Ganti ke Satelit" : "Ganti ke Peta", onClick: () => setTileLayer(t => t === "street" ? "satellite" : "street") },
   ];
@@ -1296,8 +1297,94 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       <style>{`
         .leaflet-top { top: 10px !important; }
         .leaflet-bottom.leaflet-right { bottom: 30px !important; right: 15px !important; }
-        .cluster { background-color: #2ecc71 !important; }
-        .cluster div { background-color: #27ae60 !important; }
+
+        /* ===== MARKER CLUSTER CUSTOM ===== */
+        .marker-cluster-custom {
+          background: transparent !important;
+          border: none !important;
+        }
+        .cluster-inner {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #1a73e8, #0d47a1);
+          border: 3px solid #fff;
+          box-shadow: 0 2px 10px rgba(26,115,232,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          animation: clusterPulse 2s ease-in-out infinite;
+        }
+        .cluster-inner::before {
+          content: '';
+          position: absolute;
+          inset: -6px;
+          border-radius: 50%;
+          background: rgba(26,115,232,0.25);
+          animation: clusterRing 2s ease-in-out infinite;
+        }
+        .cluster-inner::after {
+          content: '';
+          position: absolute;
+          inset: -12px;
+          border-radius: 50%;
+          background: rgba(26,115,232,0.10);
+          animation: clusterRing 2s ease-in-out infinite 0.3s;
+        }
+        .cluster-count {
+          color: #fff;
+          font-size: 14px;
+          font-weight: 800;
+          font-family: sans-serif;
+          line-height: 1;
+          position: relative;
+          z-index: 1;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        /* Cluster besar (>= 10) */
+        .cluster-inner.large {
+          width: 52px;
+          height: 52px;
+          background: linear-gradient(135deg, #e74c3c, #c0392b);
+          box-shadow: 0 2px 12px rgba(231,76,60,0.55);
+          animation: clusterPulseLarge 1.6s ease-in-out infinite;
+        }
+        .cluster-inner.large::before {
+          background: rgba(231,76,60,0.25);
+        }
+        .cluster-inner.large::after {
+          background: rgba(231,76,60,0.10);
+        }
+        .cluster-inner.large .cluster-count {
+          font-size: 16px;
+        }
+        /* Cluster medium (5-9) */
+        .cluster-inner.medium {
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, #f39c12, #e67e22);
+          box-shadow: 0 2px 10px rgba(243,156,18,0.5);
+        }
+        .cluster-inner.medium::before {
+          background: rgba(243,156,18,0.25);
+        }
+        .cluster-inner.medium::after {
+          background: rgba(243,156,18,0.10);
+        }
+        @keyframes clusterPulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 2px 10px rgba(26,115,232,0.5); }
+          50%       { transform: scale(1.08); box-shadow: 0 4px 18px rgba(26,115,232,0.7); }
+        }
+        @keyframes clusterPulseLarge {
+          0%, 100% { transform: scale(1); box-shadow: 0 2px 12px rgba(231,76,60,0.55); }
+          50%       { transform: scale(1.1); box-shadow: 0 6px 22px rgba(231,76,60,0.75); }
+        }
+        @keyframes clusterRing {
+          0%, 100% { opacity: 0.6; transform: scale(1); }
+          50%       { opacity: 0; transform: scale(1.3); }
+        }
+
         @keyframes slideInLeft {
           from { transform: translateX(-100%); opacity: 0; }
           to   { transform: translateX(0);    opacity: 1; }
@@ -2282,7 +2369,19 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               )}
 
               {/* MARKER CLUSTER */}
-              <MarkerClusterGroup>
+              <MarkerClusterGroup
+                iconCreateFunction={(cluster) => {
+                  const count = cluster.getChildCount();
+                  const sizeClass = count >= 10 ? "large" : count >= 5 ? "medium" : "";
+                  const size = count >= 10 ? 64 : count >= 5 ? 60 : 56;
+                  return L.divIcon({
+                    html: `<div class="cluster-inner ${sizeClass}"><span class="cluster-count">${count}</span></div>`,
+                    className: "marker-cluster-custom",
+                    iconSize: [size, size],
+                    iconAnchor: [size / 2, size / 2],
+                  });
+                }}
+              >
                 {displayedMarkers.map((pos) => {
                   const markerColor = colorMap[pos.kategori] || "#3498db";
                   const isActive = activeMarkerId === pos.id;
@@ -2340,168 +2439,167 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </>
         )}
 
-        {activeView === "table" && userRole === "admin" && (
-          <div
-            style={{
-              height: "100%",
-              padding: "20px",
-              background: "#f8f9fa",
-              overflowY: "auto",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "20px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "16px",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: 0,
-                    color: "#333",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
-                  <Table size={18} /> Tabel Marker Menunggu Persetujuan (
-                  {pendingMarkers.length} entri)
+        {/* ===== VIEW: STATUS KONTRIBUTOR ===== */}
+        {activeView === "status" && userRole === "admin" && (
+          <div style={{ height: "100%", padding: "28px", background: "#f8f9fa", overflowY: "auto" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+              <div>
+                <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <CheckCircle size={20} color="#1a73e8" /> Status Kontributor
                 </h2>
-                <span
-                  style={{
-                    background: "#f0f4ff",
-                    color: "#2c3e50",
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    fontWeight: "700",
-                    fontSize: "13px",
-                  }}
-                >
-                  Pending: {pendingMarkers.length}
-                </span>
+                <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>
+                  {pendingMarkers.length} marker menunggu persetujuan
+                </p>
               </div>
-              <button
-                onClick={() => setActiveView("map")}
-                style={{
-                  padding: "8px 16px",
-                  background: "#6c757d",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
+              <button onClick={() => setActiveView("map")}
+                style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 16px", background: "#fff", border: "1px solid #e8eaed", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#5f6368" }}>
                 <ArrowLeft size={14} /> Kembali ke Peta
               </button>
             </div>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                background: "#fff",
-                borderRadius: "8px",
-                overflow: "hidden",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-              }}
-            >
-              <thead style={{ background: "#4a5568", color: "#fff" }}>
-                <tr>
-                  <th style={{ padding: "12px", textAlign: "left" }}>No</th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Nama</th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>
-                    Kategori
-                  </th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Alamat</th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>
-                    Pemilik
-                  </th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingMarkers.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="6"
-                      style={{
-                        padding: "40px",
-                        textAlign: "center",
-                        color: "#888",
-                      }}
-                    >
-                      Tidak ada marker yang menunggu persetujuan.
-                    </td>
-                  </tr>
-                ) : (
-                  pendingMarkers.map((marker, index) => (
-                    <tr
-                      key={marker.id}
-                      style={{ borderBottom: "1px solid #eee" }}
-                    >
-                      <td style={{ padding: "12px" }}>{index + 1}</td>
-                      <td style={{ padding: "12px", fontWeight: "bold" }}>
+
+            {pendingMarkers.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", borderRadius: "12px", border: "1px solid #e8eaed" }}>
+                <CheckCircle size={48} color="#27ae60" style={{ marginBottom: "16px" }} />
+                <h3 style={{ margin: "0 0 8px", color: "#1a1a2e" }}>Semua sudah diproses</h3>
+                <p style={{ margin: 0, color: "#9aa0a6", fontSize: "14px" }}>Tidak ada marker yang menunggu persetujuan.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {pendingMarkers.map((marker, index) => (
+                  <div key={marker.id} style={{
+                    background: "#fff", borderRadius: "12px", padding: "16px 20px",
+                    border: "1px solid #e8eaed", boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                    display: "flex", alignItems: "center", gap: "16px",
+                  }}>
+                    {/* Nomor */}
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#f0f4ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700, fontSize: "13px", color: "#1a73e8" }}>
+                      {index + 1}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: "14px", color: "#1a1a2e", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {marker.name}
-                      </td>
-                      <td style={{ padding: "12px" }}>
-                        {marker.kategori || "-"}
-                      </td>
-                      <td style={{ padding: "12px" }}>
-                        {marker.alamat || "-"}
-                      </td>
-                      <td style={{ padding: "12px" }}>
-                        {marker.pemilik || "-"}
-                      </td>
-                      <td style={{ padding: "12px" }}>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button
-                            onClick={() => handleApprove(marker.id)}
-                            style={{
-                              padding: "8px 12px",
-                              background: "#27ae60",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              fontWeight: "700",
-                            }}
-                          >
-                            Setujui
-                          </button>
-                          <button
-                            onClick={() => handleReject(marker.id)}
-                            style={{
-                              padding: "8px 12px",
-                              background: "#e74c3c",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              fontWeight: "700",
-                            }}
-                          >
-                            Tolak
-                          </button>
-                        </div>
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#9aa0a6", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: colorMap[marker.kategori] || "#3498db", display: "inline-block" }} />
+                          {marker.kategori || "-"}
+                        </span>
+                        <span>{marker.alamat?.substring(0, 50) || "-"}{marker.alamat?.length > 50 ? "..." : ""}</span>
+                        <span style={{ color: "#5f6368" }}>👤 {marker.pemilik || "-"}</span>
+                      </div>
+                    </div>
+                    {/* Badge pending */}
+                    <span style={{ background: "#fff8e1", color: "#f39c12", border: "1px solid #ffe082", padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, flexShrink: 0 }}>
+                      ⏳ Pending
+                    </span>
+                    {/* Aksi */}
+                    <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                      <button onClick={() => handleApprove(marker.id)}
+                        style={{ padding: "8px 14px", background: "#27ae60", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                        <CheckCircle size={13} /> Setujui
+                      </button>
+                      <button onClick={() => handleReject(marker.id)}
+                        style={{ padding: "8px 14px", background: "#fff5f5", color: "#e74c3c", border: "1px solid #ffcccc", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                        <XCircle size={13} /> Tolak
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== VIEW: PUSTAKA DATA ===== */}
+        {activeView === "library" && userRole === "admin" && (
+          <div style={{ height: "100%", padding: "28px", background: "#f8f9fa", overflowY: "auto" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+              <div>
+                <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Table size={20} color="#1a73e8" /> Pustaka Data
+                </h2>
+                <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>
+                  {markers.length} total marker terdaftar
+                </p>
+              </div>
+              <button onClick={() => setActiveView("map")}
+                style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 16px", background: "#fff", border: "1px solid #e8eaed", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "#5f6368" }}>
+                <ArrowLeft size={14} /> Kembali ke Peta
+              </button>
+            </div>
+
+            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e8eaed", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f8f9fa", borderBottom: "2px solid #e8eaed" }}>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>No</th>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>Nama</th>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>Kategori</th>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>Alamat</th>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>Pemilik</th>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>Status</th>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: 700, color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.8px" }}>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {markers.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" style={{ padding: "48px", textAlign: "center", color: "#9aa0a6", fontSize: "14px" }}>
+                        Belum ada data marker.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    markers.map((marker, index) => {
+                      const statusColor = marker.status === "Diterima" ? { bg: "#e8f5e9", color: "#27ae60", label: "✅ Diterima" }
+                        : marker.status === "Pending" ? { bg: "#fff8e1", color: "#f39c12", label: "⏳ Pending" }
+                        : { bg: "#fff5f5", color: "#e74c3c", label: "❌ Ditolak" };
+                      return (
+                        <tr key={marker.id} style={{ borderBottom: "1px solid #f0f0f0" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <td style={{ padding: "12px 16px", fontSize: "13px", color: "#9aa0a6" }}>{index + 1}</td>
+                          <td style={{ padding: "12px 16px", fontSize: "13px", fontWeight: 600, color: "#1a1a2e", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {marker.name}
+                          </td>
+                          <td style={{ padding: "12px 16px", fontSize: "13px" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                              <span style={{ width: 8, height: 8, borderRadius: "50%", background: colorMap[marker.kategori] || "#3498db", display: "inline-block", flexShrink: 0 }} />
+                              <span style={{ color: "#5f6368" }}>{marker.kategori || "-"}</span>
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px", fontSize: "13px", color: "#5f6368", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {marker.alamat || "-"}
+                          </td>
+                          <td style={{ padding: "12px 16px", fontSize: "13px", color: "#5f6368" }}>
+                            {marker.pemilik || "-"}
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ background: statusColor.bg, color: statusColor.color, padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, whiteSpace: "nowrap" }}>
+                              {statusColor.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button onClick={() => { handleEditClick(marker); setActiveView("map"); }}
+                                style={{ padding: "6px 10px", background: "#fff3e0", color: "#e67e22", border: "1px solid #f0c070", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>
+                                Edit
+                              </button>
+                              <button onClick={() => handleDeletePoint(marker.id)}
+                                style={{ padding: "6px 10px", background: "#fff5f5", color: "#e74c3c", border: "1px solid #ffcccc", borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>
+                                Hapus
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
