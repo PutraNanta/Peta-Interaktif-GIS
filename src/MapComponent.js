@@ -8,7 +8,7 @@
   Polyline,
 } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import {
@@ -307,7 +307,14 @@ function OSRMRoute({ from, to, onRouteInfo }) {
   );
 }
 
-// ===== FIELD COMPONENT Ã¢â‚¬â€ di luar MapComponent agar tidak re-mount setiap render =====
+// ===== MAP SETUP -- replaces deprecated whenCreated =====
+function MapSetup({ onMap }) {
+  const map = useMap();
+  useEffect(() => { onMap(map); }, [map, onMap]);
+  return null;
+}
+
+// ===== FIELD COMPONENT di luar MapComponent agar tidak re-mount setiap render =====
 const inputStyle = {
   width: "100%",
   padding: "10px",
@@ -422,7 +429,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const [kategoriModal, setKategoriModal] = useState(null); // null | { mode: 'add'|'edit', data? }
   const [katForm, setKatForm] = useState({ nama_kategori: '', warna: '#3498db', fields: [] });
   const [katFieldDraft, setKatFieldDraft] = useState({ key: '', label: '', type: 'text', options: '' });
-  // Sidebar info marker (klik marker Ã¢â€ â€™ tampil sidebar)
+ // Sidebar info marker (klik marker tampil sidebar)
   const [sidebarMarker, setSidebarMarker] = useState(null);
   // Field foto untuk form tambah/edit
   const [fotoUrl, setFotoUrl] = useState("");
@@ -430,7 +437,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Step untuk 2-step modal (1 = nama/kategori/foto, 2 = atribut)
   const [modalStep, setModalStep] = useState(1);
 
-  // Check auth on mount Ã¢â‚¬â€ guest boleh tanpa login
+ // Check auth on mount guest boleh tanpa login
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (token) {
@@ -439,7 +446,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       setUserName(localStorage.getItem("userName") || "");
       setCurrentUserId(localStorage.getItem("userId"));
     }
-    // Jika tidak ada token Ã¢â€ â€™ tetap di peta sebagai Guest
+ // Jika tidak ada token tetap di peta sebagai Guest
   }, []);
 
   // Form States
@@ -656,7 +663,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     navigate("/login");
   };
 
-  // Handle map click Ã¢â‚¬â€ buka modal tambah marker baru
+ // Handle map click buka modal tambah marker baru
   const handleMapClick = async (lat, lng) => {
     try {
       const response = await fetch(
@@ -682,7 +689,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Handle edit click Ã¢â‚¬â€ buka modal edit
+ // Handle edit click buka modal edit
   const handleEditClick = (pos) => {
     if (!authKey) return;
     setSidebarMarker(null);
@@ -703,7 +710,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Helper: Move to step 2 of modal
   const handleNextStep = () => {
     if (!customName.trim()) {
-      alert("âš ï¸ Nama lokasi harus diisi");
+      alert("Nama lokasi harus diisi");
       return;
     }
     setModalStep(2);
@@ -748,7 +755,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       (cat) => cat.nama_kategori === selectedKategori,
     );
     if (!selectedCategory) {
-      alert("âš ï¸ Kategori belum tersedia. Silakan refresh halaman.");
+      alert("Kategori belum tersedia. Silakan refresh halaman.");
       return;
     }
 
@@ -782,7 +789,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
       const result = await backendResponse.json();
       if (!backendResponse.ok) {
         alert(
-          "âŒ Gagal menyimpan data: " +
+ " Gagal menyimpan data: " +
             (result?.message ||
               backendResponse.statusText ||
               "Respons server gagal"),
@@ -819,7 +826,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           setMarkers((prev) =>
             prev.map((m) => (m.id === modalData.id ? savedMarker : m)),
           );
-          // Jika sebelumnya Rejected dan sekarang jadi Pending Ã¢â€ â€™ beri tahu user
+ // Jika sebelumnya Rejected dan sekarang jadi Pending beri tahu user
           const prevMarker = markers.find((m) => m.id === modalData.id);
           if (
             prevMarker?.status === "Rejected" &&
@@ -1022,12 +1029,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     }
   };
 
-  // Handler stabil untuk DynField — tidak membuat object baru setiap render
+ // Handler stabil untuk DynField tidak membuat object baru setiap render
   const handleDynChange = (name, value) => {
     setDynamicAttrs((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Render dynamic form fields — berbasis data fields dari DB/kategoriOptions
+ // Render dynamic form fields berbasis data fields dari DB/kategoriOptions
   const renderDynamicFields = () => {
     const selectedCategory = kategoriOptions.find(
       (cat) => cat.nama_kategori === selectedKategori,
@@ -1124,12 +1131,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Sidebar nav state
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
-  // Sidebar nav items â€” admin: status kontributor, pustaka data, tambah marker, layer
+ // Sidebar nav items admin: status kontributor, pustaka data, tambah marker, layer
   const SIDEBAR_W_COLLAPSED = 64;
   const SIDEBAR_W_EXPANDED = 220;
 
   const navItems = [
-    // Beranda â€” selalu ada, kembali ke peta utama
+ // Beranda selalu ada, kembali ke peta utama
     { id: "map", icon: <Home size={20}/>, label: "Beranda", onClick: () => { setActiveView("map"); setSidebarMarker(null); setIsEditMode(false); } },
     ...(authKey ? [
       ...(userRole !== "admin" ? [
@@ -1247,7 +1254,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         .nav-item-active { background: rgba(255,255,255,0.18) !important; }
       `}</style>
 
-      {/* MODAL REJECT Ã¢â‚¬â€ Admin isi alasan penolakan */}
+ {/* MODAL REJECT Admin isi alasan penolakan */}
       {rejectModal && (
         <div
           style={{
@@ -1684,7 +1691,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         fontWeight: "bold",
                       }}
                     >
-                      â† Kembali
+ Kembali
                     </button>
                   )}
                   <button
@@ -1730,7 +1737,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         </div>
       )}
 
-      {/* ===== SIDEBAR KIRI â€” putih, hover expand ===== */}
+ {/* ===== SIDEBAR KIRI putih, hover expand ===== */}
       <nav
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
@@ -1895,7 +1902,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           overflow: "hidden",
         }}
       >
-        {/* ===== TOP BAR â€” Card dengan judul, search, filter (hanya di map view) ===== */}
+ {/* ===== TOP BAR Card dengan judul, search, filter (hanya di map view) ===== */}
         {activeView === "map" && <div style={{
           position: "absolute",
           top: "15px",
@@ -2011,7 +2018,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           )}
         </div>}
 
-        {/* Hapus Rute button â€” top right */}
+ {/* Hapus Rute button top right */}
         {routeTarget && (
           <button
             onClick={(e) => { e.stopPropagation(); setRouteTarget(null); setLegacyRouteInfo(null); }}
@@ -2187,13 +2194,13 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
               maxZoom={18}
               maxBounds={baliBounds}
               zoomControl={false}
-              whenCreated={setMapInstance}
               style={{
                 height: "100%",
                 width: "100%",
                 cursor: isEditMode ? "crosshair" : "grab",
               }}
             >
+              <MapSetup onMap={setMapInstance} />
               <MapFocus
                 activeMarkerId={activeMarkerId}
                 markers={displayedMarkers}
@@ -2202,12 +2209,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
               {tileLayer === "street" ? (
                 <TileLayer
-                  attribution="Ã‚Â© OSM"
+ attribution=" OSM"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
               ) : (
                 <TileLayer
-                  attribution="Ã‚Â© Esri"
+ attribution=" Esri"
                   url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 />
               )}
@@ -2260,7 +2267,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                               setRoutingStep(0);
                             }
                           } else {
-                            // Klik marker Ã¢â€ â€™ buka sidebar info
+ // Klik marker buka sidebar info
                             setSidebarMarker(pos);
                             setActiveMarkerId(pos.id);
                           }
@@ -2341,11 +2348,11 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                           {marker.kategori || "-"}
                         </span>
                         <span>{marker.alamat?.substring(0, 50) || "-"}{marker.alamat?.length > 50 ? "..." : ""}</span>
-                        <span style={{ color: "#5f6368" }}>ðŸ‘¤ {marker.pemilik || "-"}</span>
+ <span style={{ color: "#5f6368" }}> {marker.pemilik || "-"}</span>
                       </div>
                     </div>
                     <span style={{ background: "#fff8e1", color: "#f39c12", border: "1px solid #ffe082", padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, flexShrink: 0 }}>
-                      â³ Pending
+ Pending
                     </span>
                     <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
                       <button onClick={() => handleApprove(marker.id)}
@@ -2408,9 +2415,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     </tr>
                   ) : (
                     markers.map((marker, index) => {
-                      const statusColor = marker.status === "Diterima" ? { bg: "#e8f5e9", color: "#27ae60", label: "âœ… Diterima" }
-                        : marker.status === "Pending" ? { bg: "#fff8e1", color: "#f39c12", label: "â³ Pending" }
-                        : { bg: "#fff5f5", color: "#e74c3c", label: "âŒ Ditolak" };
+                      const statusColor = marker.status === "Diterima" ? { bg: "#e8f5e9", color: "#27ae60", label: "Diterima" }
+                        : marker.status === "Pending" ? { bg: "#fff8e1", color: "#f39c12", label: "Pending" }
+                        : { bg: "#fff5f5", color: "#e74c3c", label: "Ditolak" };
                       return (
                         <tr key={marker.id} style={{ borderBottom: "1px solid #f0f0f0" }}
                           onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
@@ -2432,7 +2439,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                             {marker.pemilik || "-"}
                           </td>
                           <td style={{ padding: "12px 16px" }}>
-                            <span style={{ background: statusColor.bg, color: statusColor.color, padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, whiteSpace: "nowrap" }}>
+                            <span style={{ background: statusColor.bg, color: statusColor.color, padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "4px" }}>
                               {statusColor.label}
                             </span>
                           </td>
@@ -2511,7 +2518,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 3500, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ background: "#fff", borderRadius: "16px", padding: "28px", width: "520px", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
               <h3 style={{ margin: "0 0 20px", fontSize: "18px", fontWeight: 800, color: "#1a1a2e" }}>
-                {kategoriModal.mode === "add" ? "➕ Tambah Kategori" : "✏️ Edit Kategori"}
+                {kategoriModal.mode === "add" ? "Tambah Kategori" : "Edit Kategori"}
               </h3>
 
               {/* Nama */}
@@ -2540,7 +2547,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         <b>{f.label}</b> <span style={{ color: "#9aa0a6" }}>({f.key}, {f.type}{f.options ? ": " + f.options.join(", ") : ""})</span>
                       </span>
                       <button onClick={() => removeKatField(i)}
-                        style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "16px", lineHeight: 1 }}>×</button>
+                        style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: "16px", lineHeight: 1 }}>x</button>
                     </div>
                   ))}
                 </div>
@@ -2603,37 +2610,33 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
           </div>
         )}
 
-        {/* Label mode tambah */}
+        {/* Label mode tambah -- tengah bawah */}
         {isEditMode && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "96px",
-              right: "14px",
-              zIndex: 1000,
-              background: "#1a73e8",
-              color: "white",
-              padding: "6px 14px",
-              borderRadius: "20px",
-              fontSize: "12px",
-              fontWeight: "bold",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-              pointerEvents: "none",
-            }}
-          >
-            <MapPin
-              size={14}
-              style={{
-                marginRight: "4px",
-                display: "inline-block",
-                verticalAlign: "middle",
-              }}
-            />{" "}
-            Klik peta untuk tambah marker
+          <div style={{
+            position: "absolute",
+            bottom: "24px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            background: "linear-gradient(135deg, #1a73e8, #0d47a1)",
+            color: "white",
+            padding: "10px 22px",
+            borderRadius: "24px",
+            fontSize: "13px",
+            fontWeight: 700,
+            boxShadow: "0 4px 16px rgba(26,115,232,0.45)",
+            pointerEvents: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            whiteSpace: "nowrap",
+          }}>
+            <Plus size={15} />
+            Klik peta untuk menambah marker
           </div>
         )}
 
-        {/* SIDEBAR INFO MARKER Ã¢â‚¬â€ Google Maps style (kiri) */}
+ {/* SIDEBAR INFO MARKER -- Google Maps style (kiri) */}
         {sidebarMarker && (
           <div
             style={{
@@ -3150,4 +3153,5 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     </div>
   );
 }
+
 
