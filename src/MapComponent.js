@@ -354,6 +354,19 @@ function DynField({
 
 const StableDynField = (props) => <DynField {...props} />;
 
+const formatFriendlyKey = (key) => {
+  let formatted = key.replace(/_/g, " ");
+  // Kapitalisasi huruf pertama setiap kata
+  formatted = formatted.replace(/\b\w/g, (char) => char.toUpperCase());
+  // Pengecualian singkatan medis/umum
+  const acronyms = ["Rs", "Igd", "Icu", "Iccu", "Nicu", "Picu", "Hcu", "Bpjs", "Atm", "Tt", "Rme", "Sdm"];
+  acronyms.forEach(acr => {
+    const regex = new RegExp(`\\b${acr}\\b`, 'g');
+    formatted = formatted.replace(regex, acr.toUpperCase());
+  });
+  return formatted;
+};
+
 // ===== MAIN COMPONENT =====
 export default function MapComponent({ isAdminMode: _isAdminMode }) {
   const navigate = useNavigate();
@@ -1036,8 +1049,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         border: `1px solid #edf2f7`,
         boxShadow: "0 4px 12px rgba(0,0,0,0.04)"
       }}>
-        <h4 style={{ margin: "0 0 12px", color: categoryColor, fontSize: "13px", fontWeight: 700 }}>
-          Detail {selectedKategori}
+        <h4 style={{ margin: "0 0 16px", color: "#1a1a2e", fontSize: "14px", fontWeight: 700, borderBottom: "1px solid #edf2f7", paddingBottom: "8px" }}>
+          Informasi Tambahan ({selectedKategori})
         </h4>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
           {fields.map((field) => (
@@ -1463,25 +1476,34 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* HEADER */}
-            <h3
-              style={{
-                margin: "0 0 20px 0",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              {modalData.isEdit ? (
-                <>
-                  <Edit3 size={20} style={{ marginRight: "8px" }} /> Edit
-                  Fasilitas Kesehatan
-                </>
-              ) : (
-                <>
-                  <MapPin size={20} style={{ marginRight: "8px" }} /> Tambah
-                  Fasilitas Kesehatan ({modalStep}/2)
-                </>
+            <div style={{ marginBottom: "20px" }}>
+              <h3
+                style={{
+                  margin: "0 0 6px 0",
+                  display: "flex",
+                  alignItems: "center",
+                  color: "#1a1a2e",
+                  fontSize: "18px"
+                }}
+              >
+                {modalData.isEdit ? (
+                  <>
+                    <Edit3 size={20} style={{ marginRight: "8px", color: "#3182ce" }} /> Perbarui Data Lokasi
+                  </>
+                ) : (
+                  <>
+                    <MapPin size={20} style={{ marginRight: "8px", color: "#3182ce" }} /> Tambah Lokasi Baru
+                  </>
+                )}
+              </h3>
+              {!modalData.isEdit && (
+                <p style={{ margin: 0, fontSize: "13px", color: "#718096" }}>
+                  {modalStep === 1 
+                    ? "Tahap 1 dari 2: Tentukan nama, jenis fasilitas, dan foto." 
+                    : "Tahap 2 dari 2: Lengkapi detail informasi fasilitas ini."}
+                </p>
               )}
-            </h3>
+            </div>
 
             {/* STEP 1: BASIC INFO + PHOTO */}
             {modalStep === 1 && !modalData.isEdit && (
@@ -1629,17 +1651,20 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     style={{
                       padding: "10px 20px",
                       border: "none",
-                      background: "#007bff",
+                      background: "#3182ce",
                       color: "white",
-                      borderRadius: "4px",
+                      borderRadius: "6px",
                       cursor: "pointer",
                       fontWeight: "bold",
                       display: "flex",
                       alignItems: "center",
                       gap: "8px",
+                      transition: "background 0.2s"
                     }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#2b6cb0"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#3182ce"}
                   >
-                    Lanjut ke Atribut
+                    Selanjutnya: Isi Detail
                     <ArrowRight size={16} />
                   </button>
                 </div>
@@ -1741,14 +1766,20 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     style={{
                       padding: "10px 20px",
                       border: "none",
-                      background: "#007bff",
+                      background: "#3182ce",
                       color: "white",
-                      borderRadius: "4px",
+                      borderRadius: "6px",
                       cursor: "pointer",
                       fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "background 0.2s"
                     }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#2b6cb0"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#3182ce"}
                   >
-                    {modalData.isEdit ? "Simpan" : "Tambah"}
+                    <CheckCircle size={16} /> {modalData.isEdit ? "Simpan Perubahan" : "Kirim Pengajuan"}
                   </button>
                 </div>
               </>
@@ -2967,8 +2998,8 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                             key={key}
                             className="modern-card"
                           >
-                            <span className="modern-attr-key">
-                              <IconComponent size={14} color="#a0aec0" /> {key.replace(/_/g, " ")}
+                            <span className="modern-attr-key" style={{ textTransform: "none" }}>
+                              <IconComponent size={14} color="#a0aec0" /> {formatFriendlyKey(key)}
                             </span>
                             <span className="modern-attr-val">
                               {val}
