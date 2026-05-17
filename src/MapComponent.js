@@ -1,4 +1,4 @@
-﻿import {
+import {
   MapContainer,
   TileLayer,
   Marker,
@@ -1108,6 +1108,9 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   // Mode explore : semua marker Diterima + is_public (dari endpoint /explore)
   const displayedMarkers = (showExplore ? exploreMarkers : markers).filter(
     (m) => {
+      // Sembunyikan marker dari peta jika belum di-approve, kecuali admin
+      if (userRole !== "admin" && m.status !== "Diterima") return false;
+
       const currentFilters = showExplore ? filtersExplore : filters;
       const categoryMatch = currentFilters[m.kategori] !== false;
 
@@ -1141,6 +1144,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
     ...(authKey ? [
       ...(userRole !== "admin" ? [
         { id: "explore", icon: <Compass size={20}/>, label: showExplore ? "Tutup Eksplorasi" : "Eksplorasi", onClick: () => setShowExplore(!showExplore), active: showExplore },
+        { id: "status",   icon: <CheckCircle size={20}/>, label: "Status Marker Saya", badge: pendingCount, onClick: () => setActiveView("status") },
       ] : []),
       ...(userRole === "admin" ? [
         { id: "status",   icon: <CheckCircle size={20}/>, label: "Status Kontributor", badge: pendingCount, onClick: () => setActiveView("status") },
@@ -2300,7 +2304,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         )}
 
         {/* ===== VIEW: STATUS KONTRIBUTOR ===== */}
-        {activeView === "status" && userRole === "admin" && (
+        {activeView === "status" && (
           <div style={{
             position: "absolute",
             top: 0, bottom: 0,
@@ -2314,7 +2318,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             {/* Header */}
             <div style={{ marginBottom: "24px" }}>
               <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 800, color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
-                <CheckCircle size={20} color="#1a73e8" /> Status Kontributor
+                <CheckCircle size={20} color="#1a73e8" /> {userRole === "admin" ? "Status Kontributor" : "Status Marker Saya"}
               </h2>
               <p style={{ margin: 0, color: "#9aa0a6", fontSize: "13px" }}>
                 {pendingMarkers.length} marker menunggu persetujuan
@@ -2354,16 +2358,18 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                     <span style={{ background: "#fff8e1", color: "#f39c12", border: "1px solid #ffe082", padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, flexShrink: 0 }}>
  Pending
                     </span>
-                    <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-                      <button onClick={() => handleApprove(marker.id)}
-                        style={{ padding: "8px 14px", background: "#27ae60", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
-                        <CheckCircle size={13} /> Setujui
-                      </button>
-                      <button onClick={() => handleReject(marker.id)}
-                        style={{ padding: "8px 14px", background: "#fff5f5", color: "#e74c3c", border: "1px solid #ffcccc", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
-                        <XCircle size={13} /> Tolak
-                      </button>
-                    </div>
+                    {userRole === "admin" && (
+                      <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                        <button onClick={() => handleApprove(marker.id)}
+                          style={{ padding: "8px 14px", background: "#27ae60", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                          <CheckCircle size={13} /> Setujui
+                        </button>
+                        <button onClick={() => handleReject(marker.id)}
+                          style={{ padding: "8px 14px", background: "#fff5f5", color: "#e74c3c", border: "1px solid #ffcccc", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "4px" }}>
+                          <XCircle size={13} /> Tolak
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
