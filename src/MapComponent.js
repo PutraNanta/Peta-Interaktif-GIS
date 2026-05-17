@@ -315,23 +315,6 @@ function MapSetup({ onMap }) {
 }
 
 // ===== FIELD COMPONENT di luar MapComponent agar tidak re-mount setiap render =====
-const inputStyle = {
-  width: "100%",
-  padding: "10px",
-  margin: "5px 0 12px 0",
-  boxSizing: "border-box",
-  border: "1px solid #ddd",
-  borderRadius: "6px",
-  fontSize: "13px",
-};
-const labelStyle = {
-  fontSize: "12px",
-  fontWeight: "bold",
-  color: "#555",
-  display: "block",
-  marginBottom: "4px",
-};
-
 function DynField({
   label,
   name,
@@ -343,12 +326,12 @@ function DynField({
 }) {
   return (
     <div>
-      <label style={labelStyle}>{label}</label>
+      <label className="modern-label">{label}</label>
       {options ? (
         <select
           value={value || options[0]}
           onChange={(e) => onChange(name, e.target.value)}
-          style={inputStyle}
+          className="modern-input"
         >
           {options.map((o) => (
             <option key={o} value={o}>
@@ -362,7 +345,7 @@ function DynField({
           placeholder={placeholder}
           value={value || ""}
           onChange={(e) => onChange(name, e.target.value)}
-          style={inputStyle}
+          className="modern-input"
         />
       )}
     </div>
@@ -1046,11 +1029,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
 
     return (
       <div style={{
-        marginTop: 14,
-        background: "#f8f9fa",
-        padding: 14,
-        borderRadius: 10,
-        border: `1px solid ${categoryColor}44`,
+        marginTop: 20,
+        background: "#ffffff",
+        padding: "20px",
+        borderRadius: "12px",
+        border: `1px solid #edf2f7`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.04)"
       }}>
         <h4 style={{ margin: "0 0 12px", color: categoryColor, fontSize: "13px", fontWeight: 700 }}>
           Detail {selectedKategori}
@@ -1161,6 +1145,67 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
   return (
     <div style={{ height: "100vh", fontFamily: "sans-serif", position: "relative", display: "flex" }}>
       <style>{`
+        /* ===== MODERN UI STYLES ===== */
+        .modern-input {
+          width: 100%;
+          padding: 12px 16px;
+          margin: 0 0 12px 0;
+          box-sizing: border-box;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          font-size: 13px;
+          background-color: #f7fafc;
+          color: #2d3748;
+          transition: all 0.2s ease;
+          outline: none;
+        }
+        .modern-input:focus {
+          border-color: #3182ce;
+          background-color: #ffffff;
+          box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+        }
+        .modern-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: #718096;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          display: block;
+          margin-bottom: 6px;
+        }
+        .modern-card {
+          background: #ffffff;
+          padding: 14px;
+          border-radius: 10px;
+          border: 1px solid #edf2f7;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .modern-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+          border-color: #e2e8f0;
+        }
+        .modern-attr-key {
+          font-size: 11px;
+          color: #a0aec0;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          text-transform: capitalize;
+          font-weight: 600;
+        }
+        .modern-attr-val {
+          font-size: 13px;
+          font-weight: 700;
+          color: #2d3748;
+          word-break: break-word;
+          line-height: 1.4;
+        }
+
         .leaflet-top { top: 10px !important; }
         .leaflet-bottom.leaflet-right { bottom: 30px !important; right: 15px !important; }
 
@@ -1441,7 +1486,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
             {/* STEP 1: BASIC INFO + PHOTO */}
             {modalStep === 1 && !modalData.isEdit && (
               <>
-                <label style={{ fontSize: "12px", fontWeight: "bold" }}>
+                <label className="modern-label">
                   Nama Lokasi
                 </label>
                 <input
@@ -1449,31 +1494,16 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   placeholder="Ketik nama..."
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    margin: "5px 0 15px 0",
-                    boxSizing: "border-box",
-                    border: "1px solid #ddd",
-                    borderRadius: "6px",
-                  }}
+                  className="modern-input"
                 />
 
-                <label style={{ fontSize: "12px", fontWeight: "bold" }}>
+                <label className="modern-label">
                   Kategori Kesehatan
                 </label>
                 <select
                   value={selectedKategori}
                   onChange={(e) => setSelectedKategori(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    marginTop: "5px",
-                    marginBottom: "15px",
-                    borderRadius: "6px",
-                    border: "1px solid #ddd",
-                    fontWeight: "bold",
-                  }}
+                  className="modern-input"
                 >
                   {(kategoriOptions.length > 0
                     ? kategoriOptions
@@ -1543,15 +1573,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                 />
 
                 {/* URL FOTO ALTERNATIVE */}
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                    color: "#555",
-                    display: "block",
-                    marginBottom: "6px",
-                  }}
-                >
+                <label className="modern-label">
                   Atau masukkan URL Foto
                 </label>
                 <input
@@ -1559,15 +1581,7 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   placeholder="https://contoh.com/foto.jpg"
                   value={fotoUrl}
                   onChange={(e) => setFotoUrl(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    marginBottom: "10px",
-                    boxSizing: "border-box",
-                    border: "1px solid #ddd",
-                    borderRadius: "6px",
-                    fontSize: "13px",
-                  }}
+                  className="modern-input"
                 />
 
                 {/* PREVIEW */}
@@ -2951,20 +2965,12 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                         return (
                           <div
                             key={key}
-                            style={{
-                              background: "#f8f9fa",
-                              padding: "10px",
-                              borderRadius: "8px",
-                              border: "1px solid #e8eaed",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "4px"
-                            }}
+                            className="modern-card"
                           >
-                            <span style={{ fontSize: "11px", color: "#5f6368", display: "flex", alignItems: "center", gap: "4px", textTransform: "capitalize" }}>
-                              <IconComponent size={12} /> {key.replace(/_/g, " ")}
+                            <span className="modern-attr-key">
+                              <IconComponent size={14} color="#a0aec0" /> {key.replace(/_/g, " ")}
                             </span>
-                            <span style={{ fontSize: "12px", fontWeight: 700, color: "#1a1a2e", wordBreak: "break-word" }}>
+                            <span className="modern-attr-val">
                               {val}
                             </span>
                           </div>
