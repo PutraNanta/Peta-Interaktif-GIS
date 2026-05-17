@@ -1055,18 +1055,20 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
         <h4 style={{ margin: "0 0 12px", color: categoryColor, fontSize: "13px", fontWeight: 700 }}>
           Detail {selectedKategori}
         </h4>
-        {fields.map((field) => (
-          <DynField
-            key={field.key}
-            label={field.label}
-            name={field.key}
-            type={field.type}
-            placeholder={field.placeholder || ""}
-            options={field.options}
-            value={dynamicAttrs[field.key] ?? ""}
-            onChange={handleDynChange}
-          />
-        ))}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          {fields.map((field) => (
+            <DynField
+              key={field.key}
+              label={field.label}
+              name={field.key}
+              type={field.type}
+              placeholder={field.placeholder || ""}
+              options={field.options}
+              value={dynamicAttrs[field.key] ?? ""}
+              onChange={handleDynChange}
+            />
+          ))}
+        </div>
       </div>
     );
   };
@@ -2924,68 +2926,52 @@ export default function MapComponent({ isAdminMode: _isAdminMode }) {
                   >
                     Detail Fasilitas
                   </p>
-                  {Object.entries(sidebarMarker.atribut_tambahan).map(
-                    ([key, val]) => {
-                      const iconMap = {
-                        jam_operasional: Clock,
-                        telepon: Phone,
-                        bpjs: ShieldCheck,
-                        igd: Hospital,
-                        spesialisasi: Stethoscope,
-                        fasilitas: Home,
-                        kapasitas_tt: Bed,
-                        status_rs: ShieldCheck,
-                        kelas_rs: Star,
-                        rawat_inap: Bed,
-                        drive_thru: Car,
-                        buka_24_jam: Clock,
-                        nama_dokter: User,
-                        apoteker: Pill,
-                        jaringan: Link,
-                        jenis_klinik: Hospital,
-                      };
-                      const IconComponent = iconMap[key] || Circle;
-                      return (
-                        <div
-                          key={key}
-                          className="attr-row"
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "9px 0",
-                            borderBottom: "1px solid #f5f5f5",
-                            gap: "10px",
-                          }}
-                        >
-                          <span
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    {Object.entries(sidebarMarker.atribut_tambahan).map(
+                      ([key, val]) => {
+                        const iconMap = {
+                          jam_operasional: Clock,
+                          telepon: Phone,
+                          bpjs: ShieldCheck,
+                          igd: Hospital,
+                          spesialisasi: Stethoscope,
+                          fasilitas: Home,
+                          kapasitas_tt: Bed,
+                          status_rs: ShieldCheck,
+                          kelas_rs: Star,
+                          rawat_inap: Bed,
+                          drive_thru: Car,
+                          buka_24_jam: Clock,
+                          nama_dokter: User,
+                          apoteker: Pill,
+                          jaringan: Link,
+                          jenis_klinik: Hospital,
+                        };
+                        const IconComponent = iconMap[key] || Circle;
+                        return (
+                          <div
+                            key={key}
                             style={{
-                              fontSize: "13px",
-                              color: "#5f6368",
+                              background: "#f8f9fa",
+                              padding: "10px",
+                              borderRadius: "8px",
+                              border: "1px solid #e8eaed",
                               display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
+                              flexDirection: "column",
+                              gap: "4px"
                             }}
                           >
-                            <IconComponent size={14} />
-                            <span style={{ textTransform: "capitalize" }}>
-                              {key.replace(/_/g, " ")}
+                            <span style={{ fontSize: "11px", color: "#5f6368", display: "flex", alignItems: "center", gap: "4px", textTransform: "capitalize" }}>
+                              <IconComponent size={12} /> {key.replace(/_/g, " ")}
                             </span>
-                          </span>
-                          <span
-                            style={{
-                              fontSize: "13px",
-                              fontWeight: 700,
-                              color: "#1a1a2e",
-                              textAlign: "right",
-                            }}
-                          >
-                            {val}
-                          </span>
-                        </div>
-                      );
-                    },
-                  )}
+                            <span style={{ fontSize: "12px", fontWeight: 700, color: "#1a1a2e", wordBreak: "break-word" }}>
+                              {val}
+                            </span>
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
                 </div>
               )}
 
